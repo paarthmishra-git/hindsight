@@ -3,82 +3,106 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hindsight: see what it costs before you buy it</title>
+<title>Hindsight: know what it costs before it costs you</title>
 <style>
-:root{--bg:#eef1f6;--card:#fff;--ink:#0f1b2d;--muted:#5b6678;--line:#d6dce6;--gold:#e9a100;--ok:#1d7a5c;--warn:#b56a00;--bad:#b3261e}
-@media (prefers-color-scheme:dark){:root{--bg:#0d1523;--card:#152136;--ink:#eaf0fa;--muted:#93a0b6;--line:#26344d;--gold:#f2b400;--ok:#4cc79b;--warn:#f0a63c;--bad:#ff7b72}}
+:root{
+  --bg:#e4e7ec;--surface:#f3f4f6;--field:#e9ebef;--ink:#15171b;--muted:#6a707b;--line:#d3d7de;--track:#dde0e6;
+  --accent:#ff5a1f;--ok:#1f9d6b;--warn:#d98a00;--bad:#e5382b;--lift:0 1px 0 rgba(255,255,255,.7) inset,0 24px 40px -28px rgba(25,35,55,.35);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI Variable Display","Segoe UI",Inter,system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0e0f11;--surface:#1a1c1f;--field:#131517;--ink:#f2f3f5;--muted:#8b919c;--line:#2b2e33;--track:#2a2d32;
+  --accent:#ff6a33;--ok:#3ecf94;--warn:#f0b13a;--bad:#ff6b5e;--lift:0 1px 0 rgba(255,255,255,.05) inset,0 24px 40px -28px #000;
+}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:980px;margin:0 auto;padding:40px 20px 64px}
-h1{font:700 2.2rem/1.1 Georgia,"Times New Roman",serif;margin:0 0 6px}
-.tag{color:var(--muted);margin:0 0 32px;max-width:52ch}
-.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px}
-@media (max-width:760px){.grid{grid-template-columns:1fr}}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}
-label{display:block;font-weight:600;font-size:.9rem;margin:16px 0 4px}
-label:first-of-type{margin-top:0}
-small{display:block;color:var(--muted);font-weight:400;margin-top:2px}
-input{width:100%;padding:10px 12px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px}
-input:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
-.row{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
-button{font:inherit;font-weight:600;padding:11px 18px;border-radius:8px;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+main{max-width:1040px;margin:0 auto;padding:28px 20px 72px}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:56px}
+.mark{display:flex;align-items:center;gap:10px;font-weight:650;letter-spacing:-.02em;font-size:1.05rem}
+.mark i{width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 22%,transparent)}
+.mono{font:500 .72rem/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(2.2rem,6vw,4rem);line-height:1.02;letter-spacing:-.045em;font-weight:650;margin:0 0 14px;max-width:14ch}
+.lede{color:var(--muted);max-width:46ch;margin:0 0 40px;font-size:1.05rem}
+.board{display:grid;grid-template-columns:5fr 7fr;gap:16px;align-items:start}
+.stack{display:grid;gap:16px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:28px;padding:28px;box-shadow:var(--lift)}
+.controls label{display:block;margin:0 0 6px}
+.controls .f{margin-bottom:18px}
+.controls small{display:block;margin-top:6px;color:var(--muted);font-size:.8rem}
+input{width:100%;font:500 1.1rem var(--sans);letter-spacing:-.01em;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:14px;padding:13px 14px;-moz-appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input::placeholder{color:color-mix(in srgb,var(--muted) 60%,transparent)}
+:is(input,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+button{font:600 .95rem var(--sans);border-radius:999px;padding:13px 22px;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--bg);transition:transform .15s}
+button:active{transform:scale(.97)}
 button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
-.hours{font:700 4.2rem/1 Georgia,serif;margin:0}
-.hours span{font-size:1.2rem;font-weight:400;color:var(--muted);margin-left:8px;font-family:system-ui,sans-serif}
-.sub{color:var(--muted);margin:6px 0 16px}
-.bar{height:14px;background:var(--bg);border:1px solid var(--line);border-radius:7px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--gold);width:0;transition:width .5s ease}
-.barnote{font-size:.85rem;color:var(--muted);margin:6px 0 22px}
-dl{display:grid;grid-template-columns:1fr auto;gap:10px 16px;margin:0 0 20px}
-dt{color:var(--muted)}dd{margin:0;font-weight:600;text-align:right}
-.verdict{padding:14px 16px;border-radius:8px;border-left:5px solid var(--ok);background:var(--bg);font-weight:600}
-.verdict.warn{border-color:var(--warn)}.verdict.bad{border-color:var(--bad)}
-.empty{color:var(--muted)}
-.err{color:var(--bad);font-weight:600;margin-top:14px}
-@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+.err{color:var(--bad);font-weight:600;margin:14px 0 0;font-size:.9rem}
+.dial{display:grid;place-items:center;padding:36px 28px}
+.ring{position:relative;width:min(100%,280px);aspect-ratio:1}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:14;stroke-linecap:round}
+.ring .track{stroke:var(--track)}
+.ring .prog{stroke:var(--accent);transition:stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1)}
+.center{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.num{font-size:clamp(3.4rem,10vw,4.8rem);font-weight:600;letter-spacing:-.055em;line-height:1;font-variant-numeric:tabular-nums}
+.unit{margin-top:8px}
+.foot{margin-top:22px;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.stat{padding:20px}
+.stat b{display:block;margin-top:10px;font-size:1.3rem;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.verdict{display:flex;gap:16px;align-items:flex-start}
+.led{flex:none;width:12px;height:12px;margin-top:7px;border-radius:50%;background:var(--muted)}
+.led.ok{background:var(--ok);box-shadow:0 0 12px var(--ok)}
+.led.warn{background:var(--warn);box-shadow:0 0 12px var(--warn)}
+.led.bad{background:var(--bad);box-shadow:0 0 12px var(--bad)}
+.verdict p{margin:0;font-size:1.1rem;font-weight:550;letter-spacing:-.015em}
+@media (max-width:820px){.board{grid-template-columns:1fr}header{margin-bottom:36px}}
+@media (max-width:480px){.stats{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.ring .prog,button{transition:none}}
 </style>
 </head>
 <body>
 <main>
-  <h1>Hindsight</h1>
-  <p class="tag">See what a purchase really costs before you make it: in hours of your life, and in what it does to your month and your savings goal.</p>
-  <div class="grid">
-    <form class="panel" id="form" novalidate>
-      <label for="price">What do you want to buy? (₹)</label>
-      <input id="price" type="number" min="1" inputmode="decimal" placeholder="8000">
-      <label for="income">Monthly income (₹)</label>
-      <input id="income" type="number" min="1" inputmode="decimal" placeholder="40000">
-      <label for="balance">Money you expect to have left at month end (₹)<small>After your usual bills and spending.</small></label>
-      <input id="balance" type="number" inputmode="decimal" placeholder="6000">
-      <label for="goal">Monthly savings for your goal (₹)</label>
-      <input id="goal" type="number" min="0" inputmode="decimal" placeholder="5000">
-      <label for="hoursMonth">Working hours per month</label>
-      <input id="hoursMonth" type="number" min="1" inputmode="decimal" value="160">
-      <div class="row">
-        <button type="submit">Check this purchase</button>
-        <button type="button" class="ghost" id="example">Fill an example</button>
-      </div>
-      <div class="err" id="err" role="alert"></div>
+  <header><span class="mark"><i></i>hindsight</span><span class="mono">Purchase check</span></header>
+  <h1>Know what it costs before it costs you.</h1>
+  <p class="lede">Every price, converted into hours of your working life, and into what it does to your month and your savings goal.</p>
+
+  <div class="board">
+    <form class="tile controls" id="form" novalidate>
+      <div class="f"><label class="mono" for="price">Price (₹)</label><input id="price" type="number" min="1" inputmode="decimal" placeholder="8000"></div>
+      <div class="f"><label class="mono" for="income">Monthly income (₹)</label><input id="income" type="number" min="1" inputmode="decimal" placeholder="40000"></div>
+      <div class="f"><label class="mono" for="balance">Left at month end (₹)</label><input id="balance" type="number" inputmode="decimal" placeholder="6000"><small>What you expect after usual bills and spending.</small></div>
+      <div class="f"><label class="mono" for="goal">Monthly savings goal (₹)</label><input id="goal" type="number" min="0" inputmode="decimal" placeholder="5000"></div>
+      <div class="f"><label class="mono" for="hoursMonth">Working hours per month</label><input id="hoursMonth" type="number" min="1" inputmode="decimal" value="160"></div>
+      <div class="actions"><button type="submit">Check purchase</button><button type="button" class="ghost" id="example">Try an example</button></div>
+      <p class="err" id="err" role="alert"></p>
     </form>
-    <section class="panel" aria-live="polite">
-      <p class="empty" id="empty">Enter a purchase and its cost in working hours will show up here.</p>
-      <div id="result" hidden>
-        <p class="hours"><span id="h" style="margin:0;font-size:inherit;color:inherit;font-family:inherit;font-weight:inherit"></span><span>hours of work</span></p>
-        <p class="sub" id="days"></p>
-        <div class="bar" aria-hidden="true"><i id="fill"></i></div>
-        <p class="barnote" id="barnote"></p>
-        <dl>
-          <dt>Left at month end, before</dt><dd id="before"></dd>
-          <dt>Left at month end, after</dt><dd id="after"></dd>
-          <dt>Savings goal delayed by</dt><dd id="delay"></dd>
-        </dl>
-        <div class="verdict" id="verdict"></div>
+
+    <div class="stack" aria-live="polite">
+      <section class="tile dial">
+        <div class="ring">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            <circle class="track" cx="100" cy="100" r="88"></circle>
+            <circle class="prog" id="prog" cx="100" cy="100" r="88" stroke-dasharray="552.9" stroke-dashoffset="552.9"></circle>
+          </svg>
+          <div class="center"><div class="num" id="h">0</div><div class="mono unit">hours of work</div></div>
+        </div>
+        <div class="mono foot" id="foot">Enter a purchase to begin</div>
+      </section>
+      <div class="stats">
+        <div class="tile stat"><span class="mono">Month end after</span><b id="after">—</b></div>
+        <div class="tile stat"><span class="mono">Goal shift</span><b id="delay">—</b></div>
+        <div class="tile stat"><span class="mono">Working days</span><b id="days">—</b></div>
       </div>
-    </section>
+      <div class="tile verdict"><span class="led" id="led"></span><p id="verdict">Your verdict will appear here.</p></div>
+    </div>
   </div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
+const C = 552.9;
 const inr = n => (n < 0 ? "-" : "") + "₹" + Math.abs(Math.round(n)).toLocaleString("en-IN");
 
 $("example").onclick = () => {
@@ -97,7 +121,7 @@ $("form").onsubmit = async e => {
     work_hours_per_month: +$("hoursMonth").value || 160,
   };
   if (!(body.price > 0) || !(body.monthly_income > 0)) {
-    $("err").textContent = "Enter a price and a monthly income greater than zero.";
+    $("err").textContent = "Enter a price and a monthly income above zero.";
     return;
   }
   try {
@@ -106,7 +130,7 @@ $("form").onsubmit = async e => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error("The server rejected those numbers. Check each field.");
+    if (!res.ok) throw new Error("Those numbers were rejected. Check each field.");
     show(await res.json(), body);
   } catch (err) {
     $("err").textContent = err.message || "Could not reach the server. Try again.";
@@ -114,25 +138,24 @@ $("form").onsubmit = async e => {
 };
 
 function show(r, body) {
-  $("empty").hidden = true; $("result").hidden = false;
+  const share = Math.min(1, r.hours_of_life / body.work_hours_per_month);
   $("h").textContent = r.hours_of_life;
-  $("days").textContent = "About " + (r.hours_of_life / 8).toFixed(1) + " full working days";
-  const pct = Math.min(100, (r.hours_of_life / body.work_hours_per_month) * 100);
-  $("fill").style.width = pct + "%";
-  $("barnote").textContent = pct.toFixed(0) + "% of a " + body.work_hours_per_month + "-hour working month";
-  $("before").textContent = inr(r.month_end_before);
+  $("prog").style.strokeDashoffset = C * (1 - share);
+  $("foot").textContent = Math.round(share * 100) + "% of a " + body.work_hours_per_month + "-hour month";
   $("after").textContent = inr(r.month_end_after);
-  $("delay").textContent = r.goal_delay_months ? r.goal_delay_months + " months" : "Not delayed";
-  const v = $("verdict"); v.className = "verdict";
+  $("delay").textContent = r.goal_delay_months ? "+" + r.goal_delay_months + " mo" : "On track";
+  $("days").textContent = (r.hours_of_life / 8).toFixed(1);
+  const led = $("led"), v = $("verdict");
   if (r.month_end_after < 0) {
-    v.classList.add("bad");
-    v.textContent = "This would leave you " + inr(-r.month_end_after) + " short this month" +
-      (r.goal_delay_months ? " and push your goal back " + r.goal_delay_months + " months." : ".");
+    led.className = "led bad";
+    v.textContent = "This leaves you " + inr(-r.month_end_after) + " short this month" +
+      (r.goal_delay_months ? " and pushes your goal back " + r.goal_delay_months + " months." : ".");
   } else if (r.goal_delay_months > 0) {
-    v.classList.add("warn");
-    v.textContent = "You can afford it, but your goal moves back " + r.goal_delay_months + " months.";
+    led.className = "led warn";
+    v.textContent = "Affordable, but your goal moves back " + r.goal_delay_months + " months.";
   } else {
-    v.textContent = "This fits inside your month without touching your savings goal.";
+    led.className = "led ok";
+    v.textContent = "Fits inside your month without touching your savings goal.";
   }
 }
 </script>
