@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .db import init_db
@@ -34,3 +36,5 @@ def hours(price: float, monthly_income: float, work_hours_per_month: float = 160
 @app.post("/simulate")
 def simulate(req: SimulateRequest) -> dict:
     return simulate_purchase(**req.model_dump()).__dict__
+
+app.mount("/", StaticFiles(directory=Path(__file__).parent.parent / "static", html=True), name="static")

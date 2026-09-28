@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hindsight: see what it costs before you buy it</title>
+<style>
+:root{--bg:#eef1f6;--card:#fff;--ink:#0f1b2d;--muted:#5b6678;--line:#d6dce6;--gold:#e9a100;--ok:#1d7a5c;--warn:#b56a00;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#0d1523;--card:#152136;--ink:#eaf0fa;--muted:#93a0b6;--line:#26344d;--gold:#f2b400;--ok:#4cc79b;--warn:#f0a63c;--bad:#ff7b72}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:40px 20px 64px}
+h1{font:700 2.2rem/1.1 Georgia,"Times New Roman",serif;margin:0 0 6px}
+.tag{color:var(--muted);margin:0 0 32px;max-width:52ch}
+.grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:24px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px}
+label{display:block;font-weight:600;font-size:.9rem;margin:16px 0 4px}
+label:first-of-type{margin-top:0}
+small{display:block;color:var(--muted);font-weight:400;margin-top:2px}
+input{width:100%;padding:10px 12px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px}
+input:focus-visible,button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.row{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+button{font:inherit;font-weight:600;padding:11px 18px;border-radius:8px;cursor:pointer;border:1px solid var(--ink);background:var(--ink);color:var(--bg)}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+.hours{font:700 4.2rem/1 Georgia,serif;margin:0}
+.hours span{font-size:1.2rem;font-weight:400;color:var(--muted);margin-left:8px;font-family:system-ui,sans-serif}
+.sub{color:var(--muted);margin:6px 0 16px}
+.bar{height:14px;background:var(--bg);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold);width:0;transition:width .5s ease}
+.barnote{font-size:.85rem;color:var(--muted);margin:6px 0 22px}
+dl{display:grid;grid-template-columns:1fr auto;gap:10px 16px;margin:0 0 20px}
+dt{color:var(--muted)}dd{margin:0;font-weight:600;text-align:right}
+.verdict{padding:14px 16px;border-radius:8px;border-left:5px solid var(--ok);background:var(--bg);font-weight:600}
+.verdict.warn{border-color:var(--warn)}.verdict.bad{border-color:var(--bad)}
+.empty{color:var(--muted)}
+.err{color:var(--bad);font-weight:600;margin-top:14px}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Hindsight</h1>
+  <p class="tag">See what a purchase really costs before you make it: in hours of your life, and in what it does to your month and your savings goal.</p>
+  <div class="grid">
+    <form class="panel" id="form" novalidate>
+      <label for="price">What do you want to buy? (₹)</label>
+      <input id="price" type="number" min="1" inputmode="decimal" placeholder="8000">
+      <label for="income">Monthly income (₹)</label>
+      <input id="income" type="number" min="1" inputmode="decimal" placeholder="40000">
+      <label for="balance">Money you expect to have left at month end (₹)<small>After your usual bills and spending.</small></label>
+      <input id="balance" type="number" inputmode="decimal" placeholder="6000">
+      <label for="goal">Monthly savings for your goal (₹)</label>
+      <input id="goal" type="number" min="0" inputmode="decimal" placeholder="5000">
+      <label for="hoursMonth">Working hours per month</label>
+      <input id="hoursMonth" type="number" min="1" inputmode="decimal" value="160">
+      <div class="row">
+        <button type="submit">Check this purchase</button>
+        <button type="button" class="ghost" id="example">Fill an example</button>
+      </div>
+      <div class="err" id="err" role="alert"></div>
+    </form>
+    <section class="panel" aria-live="polite">
+      <p class="empty" id="empty">Enter a purchase and its cost in working hours will show up here.</p>
+      <div id="result" hidden>
+        <p class="hours"><span id="h" style="margin:0;font-size:inherit;color:inherit;font-family:inherit;font-weight:inherit"></span><span>hours of work</span></p>
+        <p class="sub" id="days"></p>
+        <div class="bar" aria-hidden="true"><i id="fill"></i></div>
+        <p class="barnote" id="barnote"></p>
+        <dl>
+          <dt>Left at month end, before</dt><dd id="before"></dd>
+          <dt>Left at month end, after</dt><dd id="after"></dd>
+          <dt>Savings goal delayed by</dt><dd id="delay"></dd>
+        </dl>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const inr = n => (n < 0 ? "-" : "") + "₹" + Math.abs(Math.round(n)).toLocaleString("en-IN");
+
+$("example").onclick = () => {
+  $("price").value = 8000; $("income").value = 40000;
+  $("balance").value = 6000; $("goal").value = 5000; $("hoursMonth").value = 160;
+};
+
+$("form").onsubmit = async e => {
+  e.preventDefault();
+  $("err").textContent = "";
+  const body = {
+    price: +$("price").value,
+    monthly_income: +$("income").value,
+    projected_month_end_balance: +$("balance").value,
+    goal_monthly_contribution: +$("goal").value || 0,
+    work_hours_per_month: +$("hoursMonth").value || 160,
+  };
+  if (!(body.price > 0) || !(body.monthly_income > 0)) {
+    $("err").textContent = "Enter a price and a monthly income greater than zero.";
+    return;
+  }
+  try {
+    const res = await fetch("/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error("The server rejected those numbers. Check each field.");
+    show(await res.json(), body);
+  } catch (err) {
+    $("err").textContent = err.message || "Could not reach the server. Try again.";
+  }
+};
+
+function show(r, body) {
+  $("empty").hidden = true; $("result").hidden = false;
+  $("h").textContent = r.hours_of_life;
+  $("days").textContent = "About " + (r.hours_of_life / 8).toFixed(1) + " full working days";
+  const pct = Math.min(100, (r.hours_of_life / body.work_hours_per_month) * 100);
+  $("fill").style.width = pct + "%";
+  $("barnote").textContent = pct.toFixed(0) + "% of a " + body.work_hours_per_month + "-hour working month";
+  $("before").textContent = inr(r.month_end_before);
+  $("after").textContent = inr(r.month_end_after);
+  $("delay").textContent = r.goal_delay_months ? r.goal_delay_months + " months" : "Not delayed";
+  const v = $("verdict"); v.className = "verdict";
+  if (r.month_end_after < 0) {
+    v.classList.add("bad");
+    v.textContent = "This would leave you " + inr(-r.month_end_after) + " short this month" +
+      (r.goal_delay_months ? " and push your goal back " + r.goal_delay_months + " months." : ".");
+  } else if (r.goal_delay_months > 0) {
+    v.classList.add("warn");
+    v.textContent = "You can afford it, but your goal moves back " + r.goal_delay_months + " months.";
+  } else {
+    v.textContent = "This fits inside your month without touching your savings goal.";
+  }
+}
+</script>
+</body>
+</html>
