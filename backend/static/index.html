@@ -62,6 +62,7 @@ button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 .auth img{width:30px;height:30px;border-radius:50%;border:1px solid var(--line)}
 .auth .name{font-size:.88rem;font-weight:600;letter-spacing:-.01em}
 button.signin{display:flex;align-items:center;gap:8px;padding:10px 16px 10px 12px;background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+button.signin[hidden]{display:none}
 button.signin svg{width:18px;height:18px}
 button.signout{padding:8px 14px;font-size:.82rem}
 @media (max-width:820px){.board{grid-template-columns:1fr}header{margin-bottom:36px}}
@@ -184,7 +185,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDrwf5-49j5o79cgSHKUtx2lYCFY5dTsdo",
+  apiKey: "AIzaSyDrwf5-49j5o79cg5HkUtx2lYCFY5dTsdo",
   authDomain: "hindsight-ff311.firebaseapp.com",
   projectId: "hindsight-ff311",
   storageBucket: "hindsight-ff311.firebasestorage.app",
