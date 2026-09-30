@@ -1,125 +1,235 @@
-# Hindsight
+<!-- ============ HEADER ============ -->
+<div align="center">
 
-**An expense tracker that shows what a purchase really costs *before* you make it.**
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f2027,50:203a43,100:2c5364&height=220&section=header&text=UPES%20100%20Days%20of%20Code&fontSize=44&fontColor=ffffff&animation=fadeIn&fontAlignY=38&desc=B.Tech%20CSE%20%C2%B7%20UPES%20Dehradun&descAlignY=58&descSize=18" alt="header" />
 
-Most money apps give you hindsight after the money is gone. Hindsight gives it to you up front: every price becomes hours of your working life, and a simulator shows what the purchase does to your month and your savings goal.
+<a href="https://git.io/typing-svg">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=36BCF7&center=true&vCenter=true&width=600&lines=Code+every+day.+No+excuses.;Consistency+beats+intensity.;Committing+Day+by+Day+%F0%9F%9A%80;Learning+C.+Building+habits." alt="Typing SVG" />
+</a>
 
-**Live demo:** https://hindsight-4w7d.onrender.com
+<br/>
 
-> The demo runs on a free plan, so the first load after a quiet spell can take a minute while it wakes up.
+![Days Completed](https://img.shields.io/badge/Days_Completed-43%2F100-36BCF7?style=for-the-badge&logo=target&logoColor=white)
+![Language](https://img.shields.io/badge/Language-C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Status](https://img.shields.io/badge/Status-In_Progress-brightgreen?style=for-the-badge)
+![Commits](https://img.shields.io/github/commit-activity/t/paarthmishra-git/PAARTHMISHRA-UPES-100DAYSCODING?style=for-the-badge&color=orange)
+![Last Commit](https://img.shields.io/github/last-commit/paarthmishra-git/PAARTHMISHRA-UPES-100DAYSCODING?style=for-the-badge&color=purple)
+
+**[About](#-about) · [Progress](#-progress-tracker) · [Day Log](#-day-log) · [Stack](#-tech-stack) · [Stats](#-github-stats) · [Run It](#-run-any-program) · [Connect](#-connect)**
+
+</div>
 
 ---
 
-## What it does
+## 🎯 About
 
-| Feature | What you get | Status |
-|---|---|---|
-| **Hours of Life** | Any price converted into hours of your working month | Live |
-| **Future Me simulator** | Month-end balance after the purchase, and how far it pushes back your savings goal | Live |
-| **Regret Score** | Rate purchases a few days later; the app learns which categories and times of day you regret | Logic and tests done, UI in progress |
-| **Smart import** | Upload a bank CSV and auto-categorize transactions | Planned |
+A **100-day coding challenge** from my B.Tech in Computer Science and Engineering at **UPES Dehradun**. The goal is simple: build a daily coding habit, sharpen problem-solving, and document everything publicly.
 
-## How the numbers work
+<table>
+<tr>
+<td width="33%" valign="top">
 
-All money math is plain, deterministic Python (no AI does arithmetic), so results are predictable and testable.
+### 🔥 Objectives
+- Code **100 days** in a row
+- Master programming fundamentals
+- Build and document in public
 
-- **Hours of Life** = `price ÷ (monthly income ÷ working hours per month)`
-- **Future Me simulator:**
-  - *Free cash* = projected month-end balance − monthly savings goal contribution
-  - A purchase is paid from free cash first. Only the **shortfall** delays your goal:
-  - *Goal delay (months)* = `shortfall ÷ monthly goal contribution`
-- **Regret statistics** use simple group rates (per category and time of day) with a minimum sample size, so the app stays quiet instead of over-claiming when data is thin.
+</td>
+<td width="33%" valign="top">
 
-## Tech stack
+### 📏 Rules
+- Minimum **1 hour** per day
+- One commit for every day
+- No skipped days
 
-- **Backend:** Python, FastAPI, Pydantic
-- **Frontend:** a single HTML/CSS/JS page served by the same FastAPI app (no build step)
-- **Database:** SQLite schema for users, transactions, budgets, goals and regret ratings
-- **Tests:** pytest
-- **Hosting:** Render, auto-deployed from `main`
+</td>
+<td width="33%" valign="top">
 
-## API
+### 🧠 Focus Areas
+- Problem solving
+- Strings and arrays
+- Clean, commented code
 
-Interactive docs are at `/docs` on the live app.
+</td>
+</tr>
+</table>
 
-| Method | Path | Purpose |
-|---|---|---|
-| GET | `/health` | Health check |
-| GET | `/hours-of-life` | Convert a price to hours of work |
-| POST | `/simulate` | Run the Future Me simulation |
+---
 
-Example request:
+## 📈 Progress Tracker
 
-```json
-POST /simulate
-{
-  "price": 8000,
-  "projected_month_end_balance": 6000,
-  "goal_monthly_contribution": 5000,
-  "monthly_income": 40000
+```text
+Day 43 of 100
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱  43%
+```
+
+### 🏁 Milestones
+
+- [x] 🌱 **Day 1** – Started the challenge
+- [x] 🔟 **Day 10** – First 10 days done
+- [x] 2️⃣5️⃣ **Day 25** – Quarter of the way
+- [ ] 5️⃣0️⃣ **Day 50** – Halfway point
+- [ ] 7️⃣5️⃣ **Day 75** – Final stretch
+- [ ] 💯 **Day 100** – Challenge complete
+
+---
+
+## 📅 Day Log
+
+> Click a block to expand it. 👇
+
+<details>
+<summary><b>🟢 Days 41 – 43 · Strings (latest)</b></summary>
+<br/>
+
+| Day | Program | Concept |
+|:---:|:--------|:--------|
+| 43 | [`day43q1.c`](./day43q1.c) | Count spaces, digits and special characters in a string |
+| 43 | [`day43q2.c`](./day43q2.c) | String practice |
+| 42 | [`day42q1.c`](./day42q1.c) · [`day42q2.c`](./day42q2.c) | String practice |
+| 41 | [`day41a.c`](./day41a.c) · [`day41b.c`](./day41b.c) · [`day41c.c`](./day41c.c) | String practice |
+| 41 | [`day41q1.c`](./day41q1.c) · [`day41q2.c`](./day41q2.c) | String practice |
+
+</details>
+
+<details>
+<summary><b>🔵 Days 31 – 40</b></summary>
+<br/>
+
+| Day | Program | Concept |
+|:---:|:--------|:--------|
+| 40 | [`day40q2.c`](./day40q2.c) | _add topic_ |
+| … | … | … |
+
+</details>
+
+<details>
+<summary><b>🟣 Days 1 – 30</b></summary>
+<br/>
+
+| Day | Program | Concept |
+|:---:|:--------|:--------|
+| 7 | [`day7q1.c`](./day7q1.c) · [`day7q2.c`](./day7q2.c) | _add topic_ |
+| 6 | [`day6q1.c`](./day6q1.c) · [`day6q2.c`](./day6q2.c) | _add topic_ |
+| 5 | [`day5q1.c`](./day5q1.c) · [`day5q2.c`](./day5q2.c) | _add topic_ |
+| 4 | [`day4q1.c`](./day4q1.c) · [`day4q2.c`](./day4q2.c) | _add topic_ |
+| … | … | … |
+
+</details>
+
+<details>
+<summary><b>💡 Featured snippet: Day 43 (character counter)</b></summary>
+
+```c
+//Count the number of spaces, digits, and special characters in a string.
+#include <stdio.h>
+#include <ctype.h>
+
+int main() {
+    char str[100];
+    int spaces = 0, digits = 0, special = 0;
+
+    printf("Enter a string: ");
+    fgets(str, sizeof(str), stdin);
+
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] == '\n' || str[i] == '\r') {
+            continue;  // ignore newline from fgets
+        }
+
+        if (str[i] == ' ') {
+            spaces++;
+        } else if (isdigit((unsigned char)str[i])) {
+            digits++;
+        } else if (!isalpha((unsigned char)str[i])) {
+            special++;
+        }
+    }
+
+    printf("Spaces: %d\n", spaces);
+    printf("Digits: %d\n", digits);
+    printf("Special characters: %d\n", special);
+    return 0;
 }
 ```
 
-Example response:
+</details>
 
-```json
-{
-  "month_end_before": 6000,
-  "month_end_after": -2000,
-  "goal_delay_months": 1.4,
-  "budget_remaining_after": null,
-  "hours_of_life": 32
-}
-```
+---
 
-## Run it locally
+## 🛠 Tech Stack
+
+<div align="center">
+
+![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Git](https://img.shields.io/badge/Git-F05032?style=for-the-badge&logo=git&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)
+![VS Code](https://img.shields.io/badge/VS_Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
+
+</div>
+
+---
+
+## 📊 GitHub Stats
+
+<div align="center">
+
+<img height="170" src="https://github-readme-stats.vercel.app/api?username=paarthmishra-git&show_icons=true&theme=tokyonight&hide_border=true" alt="stats" />
+<img height="170" src="https://github-readme-stats.vercel.app/api/top-langs/?username=paarthmishra-git&layout=compact&theme=tokyonight&hide_border=true" alt="top languages" />
+
+<br/>
+
+<img src="https://streak-stats.demolab.com?user=paarthmishra-git&theme=tokyonight&hide_border=true" alt="streak" />
+
+<br/>
+
+<img src="https://github-readme-activity-graph.vercel.app/graph?username=paarthmishra-git&theme=tokyo-night&hide_border=true" alt="activity graph" />
+
+</div>
+
+---
+
+## ▶️ Run Any Program
+
+<details>
+<summary><b>Click for compile-and-run steps</b></summary>
 
 ```bash
-git clone https://github.com/paarthmishra-git/hindsight.git
-cd hindsight/backend
+# 1. Clone the repo
+git clone https://github.com/paarthmishra-git/PAARTHMISHRA-UPES-100DAYSCODING.git
+cd PAARTHMISHRA-UPES-100DAYSCODING
 
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # Mac / Linux
+# 2. Compile any file
+gcc day43q1.c -o day43q1
 
-pip install -r requirements.txt pytest
-pytest                        # run the tests
-uvicorn app.main:app --reload
+# 3. Run it
+./day43q1          # Linux / macOS
+day43q1.exe        # Windows
 ```
 
-Then open http://127.0.0.1:8000.
+</details>
 
-## Project structure
+<details>
+<summary><b>📝 File naming convention</b></summary>
 
-```
-hindsight/
-├── README.md
-└── backend/
-    ├── requirements.txt
-    ├── app/
-    │   ├── main.py         # FastAPI routes + serves the frontend
-    │   ├── simulator.py    # Hours of Life and Future Me math
-    │   ├── regret.py       # Regret statistics and warnings
-    │   └── db.py           # SQLite schema
-    ├── static/
-    │   └── index.html      # The frontend
-    └── tests/
-        └── test_core.py
-```
+`day<N>q<M>.c` means Day **N**, Question **M**. For example, `day43q1.c` is Day 43, Question 1.
 
-## Design decisions
+</details>
 
-- **Deterministic core.** The financial math lives in code, not in a language model, so it is exact and testable. An LLM is planned only for categorizing messy bank data and phrasing explanations.
-- **One service.** FastAPI serves both the API and the page, so the whole app deploys as a single unit.
-- **Honest insights.** Regret warnings need a minimum number of ratings before they appear.
+---
 
-## Roadmap
+## 🤝 Connect
 
-- [x] Hours of Life and Future Me simulator
-- [x] Regret statistics with tests
-- [x] Responsive frontend, light and dark mode
-- [x] Deployed with auto-deploy on push
-- [ ] Regret check-in flow (rate a purchase a few days later)
-- [ ] CSV import with automatic categorization
-- [ ] Accounts and persistent storage
-- [ ] Demo mode with sample data
+<div align="center">
+
+[![GitHub](https://img.shields.io/badge/GitHub-paarthmishra--git-181717?style=for-the-badge&logo=github)](https://github.com/paarthmishra-git)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-your--name-0A66C2?style=for-the-badge&logo=linkedin)](https://www.linkedin.com/in/your-profile)
+
+<br/>
+
+⭐ **If this repo motivates you, drop a star and start your own 100-day streak!** ⭐
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:2c5364,100:0f2027&height=100&section=footer" alt="footer" />
+
+</div>
