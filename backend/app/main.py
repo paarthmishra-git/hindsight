@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles

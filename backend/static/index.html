@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hindsight: know what it costs before it costs you</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e0f11'/%3E%3Ccircle cx='32' cy='32' r='21' fill='none' stroke='%23ff5a1f' stroke-opacity='.3' stroke-width='5'/%3E%3Ccircle cx='32' cy='32' r='12' fill='%23ff5a1f'/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#e4e7ec;--surface:#f3f4f6;--field:#e9ebef;--ink:#15171b;--muted:#6a707b;--line:#d3d7de;--track:#dde0e6;
@@ -59,6 +58,15 @@ button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 .led.warn{background:var(--warn);box-shadow:0 0 12px var(--warn)}
 .led.bad{background:var(--bad);box-shadow:0 0 12px var(--bad)}
 .verdict p{margin:0;font-size:1.1rem;font-weight:550;letter-spacing:-.015em}
+.recent{display:none}
+.recent.has-items{display:block}
+.recent h2{font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 14px;font-weight:600}
+.recent ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.recent li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.recent li:first-child{border-top:none;padding-top:0}
+.recent .rc-price{font-weight:600;letter-spacing:-.01em}
+.recent .rc-meta{color:var(--muted);font-size:.82rem;text-align:right}
+.recent .rc-hours{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600}
 .auth{display:flex;align-items:center;gap:10px}
 .auth img{width:30px;height:30px;border-radius:50%;border:1px solid var(--line)}
 .auth .name{font-size:.88rem;font-weight:600;letter-spacing:-.01em}
@@ -117,6 +125,10 @@ button.signout{padding:8px 14px;font-size:.82rem}
         <div class="tile stat"><span class="mono">Working days</span><b id="days">—</b></div>
       </div>
       <div class="tile verdict"><span class="led" id="led"></span><p id="verdict">Your verdict will appear here.</p></div>
+      <div class="tile recent" id="recent">
+        <h2>Recent checks</h2>
+        <ul id="recentList"></ul>
+      </div>
     </div>
   </div>
 </main>
@@ -177,7 +189,36 @@ function show(r, body) {
     led.className = "led ok";
     v.textContent = "Fits inside your month without touching your savings goal.";
   }
+  saveRecent(body.price, r);
 }
+
+const RECENT_KEY = "hindsight-recent-checks";
+
+function loadRecent() {
+  try { return JSON.parse(localStorage.getItem(RECENT_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveRecent(price, r) {
+  const entry = { price, hours: r.hours_of_life, after: r.month_end_after, delay: r.goal_delay_months, at: Date.now() };
+  const list = [entry, ...loadRecent()].slice(0, 5);
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch {}
+  renderRecent();
+}
+
+function renderRecent() {
+  const list = loadRecent();
+  const wrap = $("recent"), ul = $("recentList");
+  wrap.classList.toggle("has-items", list.length > 0);
+  if (!list.length) return;
+  ul.innerHTML = list.map(e => {
+    const status = e.after < 0 ? "Short this month" : e.delay > 0 ? "Goal +" + e.delay + " mo" : "On track";
+    return '<li><span class="rc-price">' + inr(e.price) + '</span>' +
+      '<span class="rc-meta"><span class="rc-hours">' + e.hours + 'h</span> &middot; ' + status + '</span></li>';
+  }).join("");
+}
+
+renderRecent();
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -185,7 +226,7 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-const $ = id => document.getElementById(id);
+const $2 = id => document.getElementById(id);
 
 async function start() {
   const firebaseConfig = await fetch("/firebase-config").then(r => r.json());
@@ -193,26 +234,26 @@ async function start() {
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
 
-  $("signInBtn").onclick = () => signInWithPopup(auth, provider).catch(err => {
-    $("err").textContent = "Sign-in didn't go through. Try again.";
+  $2("signInBtn").onclick = () => signInWithPopup(auth, provider).catch(err => {
+    $2("err").textContent = "Sign-in didn't go through. Try again.";
     console.error(err);
   });
 
-  $("signOutBtn").onclick = () => signOut(auth);
+  $2("signOutBtn").onclick = () => signOut(auth);
 
   onAuthStateChanged(auth, user => {
-    const greet = $("greeting");
+    const greet = $2("greeting");
     if (user) {
-      $("signInBtn").hidden = true;
-      $("authUser").hidden = false;
-      $("authPhoto").src = user.photoURL || "";
-      $("authName").textContent = user.displayName || user.email || "Signed in";
+      $2("signInBtn").hidden = true;
+      $2("authUser").hidden = false;
+      $2("authPhoto").src = user.photoURL || "";
+      $2("authName").textContent = user.displayName || user.email || "Signed in";
       const first = (user.displayName || "").split(" ")[0];
       greet.textContent = first ? "Welcome back, " + first + "." : "Welcome back.";
       greet.hidden = false;
     } else {
-      $("signInBtn").hidden = false;
-      $("authUser").hidden = true;
+      $2("signInBtn").hidden = false;
+      $2("authUser").hidden = true;
       greet.hidden = true;
     }
   });
