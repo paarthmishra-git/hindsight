@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
@@ -7,6 +8,18 @@ from .db import init_db
 from .simulator import hours_of_life, simulate_purchase
 
 app = FastAPI(title="Hindsight API")
+
+
+@app.get("/firebase-config")
+def firebase_config() -> dict:
+    return {
+        "apiKey": os.environ.get("FIREBASE_API_KEY", ""),
+        "authDomain": "hindsight-ff311.firebaseapp.com",
+        "projectId": "hindsight-ff311",
+        "storageBucket": "hindsight-ff311.firebasestorage.app",
+        "messagingSenderId": "672088526093",
+        "appId": "1:672088526093:web:3e19698058a2a19b773444",
+    }
 
 
 @app.on_event("startup")

@@ -185,44 +185,40 @@ import {
   getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCj8nruOjAvy6ULbsC__4uiHD_jsXT03lU",
-  authDomain: "hindsight-ff311.firebaseapp.com",
-  projectId: "hindsight-ff311",
-  storageBucket: "hindsight-ff311.firebasestorage.app",
-  messagingSenderId: "672088526093",
-  appId: "1:672088526093:web:3e19698058a2a19b773444",
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const provider = new GoogleAuthProvider();
-
 const $ = id => document.getElementById(id);
 
-$("signInBtn").onclick = () => signInWithPopup(auth, provider).catch(err => {
-  $("err").textContent = "Sign-in didn't go through. Try again.";
-  console.error(err);
-});
+async function start() {
+  const firebaseConfig = await fetch("/firebase-config").then(r => r.json());
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
 
-$("signOutBtn").onclick = () => signOut(auth);
+  $("signInBtn").onclick = () => signInWithPopup(auth, provider).catch(err => {
+    $("err").textContent = "Sign-in didn't go through. Try again.";
+    console.error(err);
+  });
 
-onAuthStateChanged(auth, user => {
-  const greet = $("greeting");
-  if (user) {
-    $("signInBtn").hidden = true;
-    $("authUser").hidden = false;
-    $("authPhoto").src = user.photoURL || "";
-    $("authName").textContent = user.displayName || user.email || "Signed in";
-    const first = (user.displayName || "").split(" ")[0];
-    greet.textContent = first ? "Welcome back, " + first + "." : "Welcome back.";
-    greet.hidden = false;
-  } else {
-    $("signInBtn").hidden = false;
-    $("authUser").hidden = true;
-    greet.hidden = true;
-  }
-});
+  $("signOutBtn").onclick = () => signOut(auth);
+
+  onAuthStateChanged(auth, user => {
+    const greet = $("greeting");
+    if (user) {
+      $("signInBtn").hidden = true;
+      $("authUser").hidden = false;
+      $("authPhoto").src = user.photoURL || "";
+      $("authName").textContent = user.displayName || user.email || "Signed in";
+      const first = (user.displayName || "").split(" ")[0];
+      greet.textContent = first ? "Welcome back, " + first + "." : "Welcome back.";
+      greet.hidden = false;
+    } else {
+      $("signInBtn").hidden = false;
+      $("authUser").hidden = true;
+      greet.hidden = true;
+    }
+  });
+}
+
+start();
 </script>
 </body>
 </html>
