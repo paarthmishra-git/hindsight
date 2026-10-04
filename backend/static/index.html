@@ -11,8 +11,18 @@
 <style>
 :root{
   --background:hsl(40 33% 96%);--foreground:hsl(0 0% 10%);--muted:hsl(43 13% 89%);--muted-fg:hsl(0 0% 34%);
-  --accent:hsl(31 100% 24%);--border:hsl(38 14% 84%);--bad:#a3261a;
+  --accent:hsl(24 88% 42%);--border:hsl(38 14% 84%);--bad:#a3261a;
   --serif:"Fraunces",ui-serif,Georgia,serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media(prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --background:hsl(30 12% 9%);--foreground:hsl(40 25% 93%);--muted:hsl(30 10% 16%);--muted-fg:hsl(35 10% 64%);
+    --accent:hsl(32 95% 58%);--border:hsl(30 10% 22%);--bad:#ff6f61;
+  }
+}
+:root[data-theme="dark"]{
+  --background:hsl(30 12% 9%);--foreground:hsl(40 25% 93%);--muted:hsl(30 10% 16%);--muted-fg:hsl(35 10% 64%);
+  --accent:hsl(32 95% 58%);--border:hsl(30 10% 22%);--bad:#ff6f61;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -33,6 +43,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:2re
 .authbtn{display:flex;align-items:center;gap:.5rem;font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;background:transparent;color:var(--foreground);border:1px solid var(--border);padding:.6rem 1rem;cursor:pointer;transition:border-color .3s,color .3s}
 .authbtn:hover{border-color:var(--accent);color:var(--accent)}
 .authbtn svg{width:16px;height:16px}
+.themebtn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:transparent;color:var(--muted-fg);border:1px solid var(--border);border-radius:50%;cursor:pointer;transition:color .3s,border-color .3s}
+.themebtn:hover{color:var(--accent);border-color:var(--accent)}
+.themebtn svg{width:16px;height:16px}
+.headerbar{display:flex;align-items:center;gap:.75rem}
 main{flex:1;padding:0 1.5rem}
 @media(min-width:768px){main{padding:0 4rem}}
 .hero{max-width:72rem;margin:0 auto;padding:3rem 0 5rem}
@@ -117,7 +131,10 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 <div class="wrap">
   <header>
     <div class="logo"><span class="dot"></span><span class="name">hindsight</span></div>
-    <div>
+    <div class="headerbar">
+      <button type="button" class="themebtn" id="themeBtn" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></svg>
+      </button>
       <button type="button" class="authbtn" id="signInBtn">
         <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.4 0 6.4 1.2 8.8 3.5l6.5-6.5C35.3 2.7 30 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.6 5.9C12.1 13 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.7c-.6 3-2.3 5.5-4.9 7.2l7.5 5.8C43.7 37.4 46.5 31.5 46.5 24.5z"/><path fill="#FBBC05" d="M10.2 28.1a14.5 14.5 0 010-8.2l-7.6-5.9a24 24 0 000 20l7.6-5.9z"/><path fill="#34A853" d="M24 48c6 0 11.3-2 15-5.4l-7.5-5.8c-2.1 1.4-4.7 2.2-7.5 2.2-6.4 0-11.9-3.5-13.8-9.2l-7.6 5.9C6.5 42.6 14.6 48 24 48z"/></svg>
         Sign in with Google
@@ -179,6 +196,26 @@ const arc = document.getElementById("arc");
 arc.setAttribute("stroke-dasharray", C);
 arc.setAttribute("stroke-dashoffset", C);
 
+// theme toggle (light / dark), remembered per browser
+const SUN = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>';
+const MOON = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+function systemPrefersDark() { return window.matchMedia("(prefers-color-scheme: dark)").matches; }
+function currentTheme() {
+  const saved = localStorage.getItem("hindsight_theme");
+  return saved || (systemPrefersDark() ? "dark" : "light");
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.getElementById("themeIcon").innerHTML = theme === "dark" ? SUN : MOON;
+}
+document.getElementById("themeBtn").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  try { localStorage.setItem("hindsight_theme", next); } catch {}
+  applyTheme(next);
+  FIELDS.forEach(f => updateSliderFill(f));
+});
+applyTheme(currentTheme());
+
 // Backend assumes a fixed 160 working hours per month.
 const FIELDS = [
   { id: "price",   label: "Price",                   prefix: "₹", min: 0, max: 200000, step: 500 },
@@ -215,7 +252,10 @@ const money = n => (n < 0 ? "−" : "") + "₹" + Math.abs(Math.round(n)).toLoca
 function updateSliderFill(f) {
   const n = Math.min(f.max, Math.max(f.min, num(state[f.id])));
   const pct = f.max > f.min ? ((n - f.min) / (f.max - f.min)) * 100 : 0;
-  $("s_" + f.id).style.background = `linear-gradient(to right, hsl(31 100% 24%) ${pct}%, hsl(38 14% 84%) ${pct}%)`;
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue("--accent").trim();
+  const border = css.getPropertyValue("--border").trim();
+  $("s_" + f.id).style.background = `linear-gradient(to right, ${accent} ${pct}%, ${border} ${pct}%)`;
 }
 
 FIELDS.forEach(f => {
