@@ -1,12 +1,10 @@
 <div align="center">
 
-# ● hindsight
+<img src="docs/receipt-banner.svg" alt="Hindsight: a receipt that converts an ₹8,000 price into 32 hours of your life" width="900">
 
-### Know what it costs before it costs you.
+### Every price tag is a bill for your time.
 
-Every price, converted into **hours of your working life**, and into what it does to your month and your savings goal.
-
-[![Live demo](https://img.shields.io/badge/▶_Live_demo-hindsight--4w7d.onrender.com-b45f06?style=for-the-badge)](https://hindsight-4w7d.onrender.com)
+[![Live demo](https://img.shields.io/badge/▶_OPEN_THE_TILL-hindsight--4w7d.onrender.com-b45f06?style=for-the-badge)](https://hindsight-4w7d.onrender.com)
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
@@ -14,87 +12,111 @@ Every price, converted into **hours of your working life**, and into what it doe
 ![Tests](https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white)
 ![Hosted on Render](https://img.shields.io/badge/hosted_on-Render-46E3B7?logo=render&logoColor=black)
 
-<br>
-
-<img src="docs/screenshot.png" alt="Hindsight purchase check screen" width="820">
-
-<sub>The demo runs on a free plan, so the first load after a quiet spell can take a minute while it wakes up.</sub>
-
 </div>
 
 ---
 
-## Contents
+> **The idea.** You think in rupees. You *earn* in hours. Hindsight translates one into the other **before** you pay, and shows what the purchase does to your month and your savings goal. This README is a receipt for the same reason: to show the cost up front.
 
-[Try it in 30 seconds](#-try-it-in-30-seconds) · [Features](#-features) · [How the numbers work](#-how-the-numbers-work) · [Architecture](#-architecture) · [API](#-api) · [Run locally](#-run-it-locally) · [Structure](#-project-structure) · [Design decisions](#-design-decisions) · [Roadmap](#-roadmap)
-
----
-
-## ⚡ Try it in 30 seconds
-
-1. Open the **[live demo](https://hindsight-4w7d.onrender.com)**.
-2. Click **Try an example**, then **Check purchase**.
-3. Watch the gauge fill. A ₹8,000 purchase on a ₹40,000 income is **32 hours** of work, and it pushes the savings goal back **1.4 months**.
+```
+==============================================
+              H I N D S I G H T
+        PURCHASE CHECK  ·  ORDER #001
+==============================================
+Sneakers .............................. ₹8,000
+Your hourly rate ..................... ₹250/hr
+----------------------------------------------
+HOURS OF LIFE ......................... 32 hrs
+   = 4 full working days
+SAVINGS GOAL PUSHED BACK .............. 1.4 mo
+MONTH END AFTER ...................... −₹2,000
+==============================================
+                STILL WANT IT?
+==============================================
+```
 
 <div align="center">
-<img src="docs/demo.gif" alt="Demo: entering a purchase and watching the gauge fill" width="720">
+<img src="docs/screenshot.png" alt="Hindsight purchase check screen" width="820">
+<br>
+<sub>The demo runs on a free plan, so the first load after a quiet spell can take a minute while it wakes up.</sub>
 </div>
 
-Sign in with Google to see a personal greeting and keep your **Recent checks** history per account.
+---
+
+## 🧾 Order in 30 seconds
+
+1. Open the **[live demo](https://hindsight-4w7d.onrender.com)**.
+2. Tap **Try an example**, then **Check purchase**.
+3. Watch the gauge fill: **₹8,000** on a **₹40,000** income is **32 hours** of work, and the savings goal slips **1.4 months**.
+
+
+
+Sign in with Google for a personal greeting and a **Recent checks** history per account.
 
 ---
 
-## ✨ Features
+## 🍽️ What's on the menu
 
-| | Feature | What you get | Status |
-|---|---|---|---|
-| ⏳ | **Hours of Life** | Any price converted into hours of your working month | ✅ Live |
-| 🔮 | **Future Me simulator** | Month-end balance after the purchase, and how far it pushes back your savings goal | ✅ Live |
-| 🔐 | **Google sign-in** | Firebase Authentication, personal greeting and per-user history | ✅ Live |
-| 🗂️ | **Recent checks** | Your last five checks, saved in the browser so you can compare over time | ✅ Live |
-| 😬 | **Regret Score** | Rate purchases a few days later; the app learns which categories and times of day you regret | 🛠️ Logic and tests done, UI in progress |
-| 📥 | **Smart import** | Upload a bank CSV and auto-categorize transactions | 📅 Planned |
+```
+==============================================
+                 TODAY'S MENU
+==============================================
+ QTY  ITEM                          STATUS
+----------------------------------------------
+  1   Hours of Life                 [LIVE]
+      price → hours of your month
+  1   Future Me simulator           [LIVE]
+      month-end balance + goal delay
+  1   Google sign-in                [LIVE]
+      Firebase Auth, per-user history
+  1   Recent checks                 [LIVE]
+      your last five, kept in-browser
+  1   Regret Score                  [COOKING]
+      rate it days later; app learns
+      logic + tests done, UI next
+  1   Smart import                  [PLANNED]
+      bank CSV → auto-categorized
+----------------------------------------------
+   ALL PRICES IN HOURS. NO REFUNDS ON TIME.
+```
 
 ---
 
-## 🧮 How the numbers work
+## 🧮 How the total is calculated
 
-All money math is plain, deterministic Python. No AI does arithmetic, so results are predictable and testable.
+All money math is plain, deterministic Python. **No AI does arithmetic**, so every number is predictable and testable.
 
-**Hours of Life**
+| Formula | |
+|---|---|
+| **Hours of Life** | `price ÷ (monthly income ÷ 160 working hours)` |
+| **Free cash** | `projected month-end balance − monthly goal contribution` |
+| **Shortfall** | `max(0, price − free cash)` |
+| **Goal delay** | `shortfall ÷ monthly goal contribution` (in months) |
 
-```
-hours = price ÷ (monthly income ÷ 160 working hours)
-```
-
-**Future Me simulator**
-
-```
-free cash   = projected month-end balance − monthly savings goal contribution
-shortfall   = max(0, price − free cash)
-goal delay  = shortfall ÷ monthly goal contribution   (in months)
-```
-
-A purchase is paid from free cash first. Only the **shortfall** delays your goal.
+A purchase is paid from free cash first. **Only the shortfall delays your goal.**
 
 <details>
-<summary><b>Worked example (click to expand)</b></summary>
+<summary><b>🧾 See the itemized receipt for the ₹8,000 example</b></summary>
 
 <br>
 
-| Input | Value |
-|---|---|
-| Price | ₹8,000 |
-| Monthly income | ₹40,000 |
-| Projected month-end balance | ₹6,000 |
-| Monthly goal contribution | ₹5,000 |
-
-1. Hourly rate = 40,000 ÷ 160 = **₹250/hour**
-2. Hours of Life = 8,000 ÷ 250 = **32 hours** (4 working days)
-3. Free cash = 6,000 − 5,000 = **₹1,000**
-4. Shortfall = 8,000 − 1,000 = **₹7,000**
-5. Goal delay = 7,000 ÷ 5,000 = **1.4 months**
-6. Month end after = 6,000 − 8,000 = **−₹2,000**
+```
+==============================================
+              THE MATH, ITEMIZED
+==============================================
+Price ................................. ₹8,000
+Monthly income ....................... ₹40,000
+Projected month-end balance ........... ₹6,000
+Monthly goal contribution ............. ₹5,000
+----------------------------------------------
+Hourly rate  (40,000 ÷ 160) ............. ₹250
+HOURS OF LIFE  (8,000 ÷ 250) .......... 32 hrs
+Free cash  (6,000 − 5,000) ............ ₹1,000
+Shortfall  (8,000 − 1,000) ............ ₹7,000
+GOAL DELAY  (7,000 ÷ 5,000) ........... 1.4 mo
+MONTH END AFTER  (6,000 − 8,000) ..... −₹2,000
+==============================================
+```
 
 </details>
 
@@ -102,7 +124,7 @@ A purchase is paid from free cash first. Only the **shortfall** delays your goal
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Behind the counter
 
 ```mermaid
 flowchart LR
@@ -120,9 +142,9 @@ flowchart LR
 
 ---
 
-## 🔌 API
+## 🔌 Talk to the cashier (API)
 
-Interactive docs are at **`/docs`** on the live app.
+Interactive docs live at **`/docs`** on the running app.
 
 | Method | Path | Purpose |
 |---|---|---|
@@ -130,14 +152,16 @@ Interactive docs are at **`/docs`** on the live app.
 | `GET` | `/hours-of-life` | Convert a price to hours of work |
 | `POST` | `/simulate` | Run the Future Me simulation |
 
+```bash
+curl -X POST https://hindsight-4w7d.onrender.com/simulate \
+  -H "Content-Type: application/json" \
+  -d '{"price":8000,"projected_month_end_balance":6000,"goal_monthly_contribution":5000,"monthly_income":40000}'
+```
+
 <details>
 <summary><b>Example request and response</b></summary>
 
 <br>
-
-```http
-POST /simulate
-```
 
 ```json
 {
@@ -162,17 +186,9 @@ Response:
 
 </details>
 
-Try it from a terminal:
-
-```bash
-curl -X POST https://hindsight-4w7d.onrender.com/simulate \
-  -H "Content-Type: application/json" \
-  -d '{"price":8000,"projected_month_end_balance":6000,"goal_monthly_contribution":5000,"monthly_income":40000}'
-```
-
 ---
 
-## 💻 Run it locally
+## 💻 Run your own store
 
 ```bash
 git clone https://github.com/paarthmishra-git/hindsight.git
@@ -200,13 +216,14 @@ The Firebase web key in `backend/static/index.html` is restricted by HTTP referr
 
 ---
 
-## 📁 Project structure
+## 📁 Floor plan
 
 ```
 hindsight/
 ├── README.md
 ├── docs/
-│   ├── screenshot.png      # used by this README
+│   ├── receipt-banner.svg  # animated header
+│   ├── screenshot.png
 │   └── demo.gif
 └── backend/
     ├── requirements.txt
@@ -223,22 +240,22 @@ hindsight/
 
 ---
 
-## 🧭 Design decisions
+## 📜 Store policy (design decisions)
 
-- **Deterministic core.** The financial math lives in code, not in a language model, so it is exact and testable. An LLM is planned only for categorizing messy bank data and phrasing explanations.
-- **One service.** FastAPI serves both the API and the page, so the whole app deploys as a single unit.
+- **Deterministic core.** Financial math lives in code, not in a language model, so it is exact and testable. An LLM is planned only for categorizing messy bank data and phrasing explanations.
+- **One service.** FastAPI serves both the API and the page, so the app deploys as a single unit.
 - **Honest insights.** Regret warnings need a minimum number of ratings before they appear.
 - **Safe public keys.** The Firebase web key is public by design, so it is locked to this app's domains and to the sign-in APIs only. Anything billable stays on the server.
 
 ---
 
-## 🗺️ Roadmap
+## 🛒 Next orders (roadmap)
 
 ```
-Core        ██████████  Hours of Life + Future Me simulator
-Regret      ███████░░░  Statistics and tests done, check-in UI next
-Accounts    ████░░░░░░  Sign-in live, persistent storage next
-Import      ░░░░░░░░░░  CSV import with categorization
+Core      ██████████  Hours of Life + Future Me simulator
+Regret    ███████░░░  Statistics and tests done, check-in UI next
+Accounts  ████░░░░░░  Sign-in live, persistent storage next
+Import    ░░░░░░░░░░  CSV import with categorization
 ```
 
 - [x] Hours of Life and Future Me simulator
@@ -255,6 +272,16 @@ Import      ░░░░░░░░░░  CSV import with categorization
 ---
 
 <div align="center">
+
+```
+==============================================
+         THANK YOU FOR CHECKING FIRST
+ Was it worth it? Hindsight says: ask before.
+==============================================
+██ ██ ██  ███ █ █ █ ██ █ █ ██  ███  █ █ ███  █
+█  ██ █  ██  ███  █  ███ █ █ █ █ ███  ██ ██ ██
+            8000 · 160 · 32 · 1.4
+```
 
 Built by [Paarth Mishra](https://github.com/paarthmishra-git) · **[Open the live demo →](https://hindsight-4w7d.onrender.com)**
 
