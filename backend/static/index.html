@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Hindsight — Purchase Check</title>
+<title>Hindsight — Know what it costs before it costs you</title>
+<meta name="description" content="Turn any price into hours of your working life, and see what a purchase does to your month and your savings goal." />
+<meta name="theme-color" content="#e4e7ec" />
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23f8f5ef'/%3E%3Ccircle cx='32' cy='32' r='21' fill='none' stroke='%23e0d8c8' stroke-width='4'/%3E%3Ccircle cx='32' cy='32' r='12' fill='%237a3f00'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -26,11 +28,13 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
+body{overflow-x:hidden}
+img,svg{max-width:100%}
 body{background:var(--background);color:var(--foreground);font-family:var(--mono);line-height:1.65;min-height:100vh}
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.035;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
 .wrap{display:flex;flex-direction:column;min-height:100vh}
-header{display:flex;align-items:center;justify-content:space-between;padding:2rem 1.5rem}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:2rem 1.5rem}
 @media(min-width:768px){header{padding:2rem 4rem}}
 .logo{display:flex;align-items:center;gap:.75rem}
 .logo .dot{height:.625rem;width:.625rem;border-radius:9999px;background:var(--accent)}
@@ -46,7 +50,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:2re
 .themebtn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;background:transparent;color:var(--muted-fg);border:1px solid var(--border);border-radius:50%;cursor:pointer;transition:color .3s,border-color .3s}
 .themebtn:hover{color:var(--accent);border-color:var(--accent)}
 .themebtn svg{width:16px;height:16px}
-.headerbar{display:flex;align-items:center;gap:.75rem}
+.headerbar{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:.75rem}
 main{flex:1;padding:0 1.5rem}
 @media(min-width:768px){main{padding:0 4rem}}
 .hero{max-width:72rem;margin:0 auto;padding:3rem 0 5rem}
@@ -55,17 +59,17 @@ main{flex:1;padding:0 1.5rem}
 .greeting[hidden]{display:none}
 h1{font-family:var(--serif);font-weight:300;margin:0;font-size:clamp(3rem,6vw,4.5rem);line-height:1.04;letter-spacing:-.01em;max-width:48rem}
 .sub{margin-top:2rem;max-width:36rem;font-size:15px;color:var(--muted-fg)}
-.calc{max-width:72rem;margin:0 auto;display:grid;grid-template-columns:1fr;gap:4rem}
-@media(min-width:1024px){.calc{grid-template-columns:5fr 7fr;gap:6rem}}
+.calc{max-width:72rem;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:4rem}
+@media(min-width:1024px){.calc{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:6rem}}
 .inputs{display:flex;flex-direction:column;gap:2.5rem}
 .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted-fg);margin-bottom:.75rem}
 .row{display:flex;align-items:baseline;gap:.5rem;border-bottom:1px solid var(--border);padding-bottom:.75rem;transition:border-color .3s}
 .row:focus-within{border-color:var(--accent)}
 .row .pre{font-size:1.25rem;color:var(--muted-fg);user-select:none}
-.row input[type=number]{width:100%;background:transparent;border:0;outline:none;font-family:var(--mono);font-size:1.5rem;color:var(--foreground)}
-.row input[type=number]::placeholder{color:hsl(0 0% 34%/.4)}
+.row input[type=number]{width:100%;min-width:0;background:transparent;border:0;outline:none;font-family:var(--mono);font-size:1.5rem;color:var(--foreground)}
+.row input[type=number]::placeholder{color:color-mix(in srgb,var(--muted-fg) 40%,transparent)}
 .row .unit{font-size:.875rem;color:var(--muted-fg);user-select:none}
-.cap{display:block;margin-top:.5rem;font-size:12px;color:hsl(0 0% 34%/.8)}
+.cap{display:block;margin-top:.5rem;font-size:12px;color:color-mix(in srgb,var(--muted-fg) 80%,transparent)}
 .range-slider{-webkit-appearance:none;appearance:none;width:100%;height:2px;border-radius:0;cursor:pointer;margin-top:1rem}
 .range-slider:focus{outline:none}
 .range-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;height:16px;width:16px;border-radius:9999px;background:var(--accent);border:2px solid var(--background);box-shadow:0 0 0 1px var(--accent),0 1px 3px hsl(31 100% 24%/.35);margin-top:-7px;transition:transform .15s}
@@ -80,11 +84,17 @@ h1{font-family:var(--serif);font-weight:300;margin:0;font-size:clamp(3rem,6vw,4.
 .btn-ghost{background:transparent;color:var(--muted-fg);padding:.75rem 1.25rem}
 .btn-ghost:hover{color:var(--accent)}
 .err{color:var(--bad);font-size:13px;margin:0;min-height:1.2em}
+.hint{color:var(--muted-fg);font-size:13px;margin:0;min-height:1.2em}
+.row-item{position:relative}
+.rm{position:absolute;top:.9rem;right:0;background:transparent;border:0;color:var(--muted-fg);font-size:18px;line-height:1;cursor:pointer;padding:.25rem .5rem;transition:color .3s}
+.rm:hover{color:var(--bad)}
+#confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:50}
 .results{display:flex;flex-direction:column}
 .gauge-wrap{position:relative;display:flex;align-items:center;justify-content:center;padding:1.5rem 0 2.5rem}
-.pulse{position:absolute;height:244px;width:244px;border-radius:9999px;border:1px solid hsl(31 100% 24%/.5);pointer-events:none}
+.gauge{width:min(280px,100%);min-width:0}
+.pulse{position:absolute;width:87%;max-width:244px;aspect-ratio:1;border-radius:9999px;border:1px solid color-mix(in srgb,var(--accent) 50%,transparent);pointer-events:none}
 .pulse.go{animation:gauge-pulse .9s ease-out forwards}
-.gauge svg{transform:rotate(-90deg);position:relative;max-width:100%;height:auto}
+.gauge svg{transform:rotate(-90deg);position:relative;width:100%;height:auto;display:block}
 .gauge .track{fill:none;stroke:var(--border);stroke-width:1.5}
 .gauge .arc{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;transition:stroke-dashoffset .9s cubic-bezier(.22,1,.36,1)}
 .gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -106,7 +116,7 @@ h1{font-family:var(--serif);font-weight:300;margin:0;font-size:clamp(3rem,6vw,4.
 .archive-head h2{font-family:var(--serif);font-size:1.875rem;letter-spacing:-.01em;margin:0;font-weight:400}
 .clear{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted-fg);background:transparent;border:0;cursor:pointer}
 .clear:hover{color:var(--accent)}
-.archive-empty{font-size:14px;color:hsl(0 0% 34%/.7);max-width:32rem}
+.archive-empty{font-size:14px;color:color-mix(in srgb,var(--muted-fg) 70%,transparent);max-width:32rem}
 .rows{border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
 .row-item{display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:1.5rem 0;border-bottom:1px solid var(--border)}
 .row-item:last-child{border-bottom:0}
@@ -114,13 +124,21 @@ h1{font-family:var(--serif);font-weight:300;margin:0;font-size:clamp(3rem,6vw,4.
 .cell .l{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted-fg);margin-bottom:.25rem}
 .cell .v-num{font-size:14px;font-variant-numeric:tabular-nums}
 .cell .v-serif{font-family:var(--serif);font-size:1.25rem}
-.cell .v-small{font-family:var(--serif);font-size:14px;color:hsl(0 0% 10%/.8);line-height:1.45}
-footer{padding:2.5rem 1.5rem;display:flex;justify-content:flex-end}
+.cell .v-small{font-family:var(--serif);font-size:14px;color:color-mix(in srgb,var(--foreground) 80%,transparent);line-height:1.45}
+footer{padding:2.5rem 1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.75rem 1.5rem}
 @media(min-width:768px){footer{padding:2.5rem 4rem}}
-footer span{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted-fg)}
+footer span,footer a{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted-fg)}
+footer nav{display:flex;gap:1.5rem;flex-wrap:wrap}
+footer a{text-decoration:none;border-bottom:1px solid transparent;transition:color .3s,border-color .3s}
+footer a:hover,footer a:focus-visible{color:var(--accent);border-bottom-color:var(--accent)}
 input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 input[type=number]{-moz-appearance:textfield;appearance:textfield}
 :is(button,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toasts{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:.5rem;width:min(28rem,calc(100% - 2rem));pointer-events:none}
+.toast{pointer-events:auto;background:var(--foreground);color:var(--background);font-size:13px;line-height:1.5;padding:.85rem 1.1rem;border-left:3px solid var(--accent);animation:verdict-in .3s ease-out}
+.toast.error{border-left-color:var(--bad)}
+.toast.out{opacity:0;transition:opacity .3s}
+@media(max-width:480px){.authbtn .long{display:none}}
 @media(max-width:600px){.stats{grid-template-columns:1fr;gap:1.5rem}.stat{border-left:0;padding:0}.verdict p{font-size:1.4rem}.auth .uname{display:none}}
 @keyframes gauge-pulse{0%{transform:scale(.9);opacity:.45}100%{transform:scale(1.12);opacity:0}}
 @keyframes verdict-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -137,7 +155,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
       </button>
       <button type="button" class="authbtn" id="signInBtn">
         <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.4 0 6.4 1.2 8.8 3.5l6.5-6.5C35.3 2.7 30 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.6 5.9C12.1 13 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v9h12.7c-.6 3-2.3 5.5-4.9 7.2l7.5 5.8C43.7 37.4 46.5 31.5 46.5 24.5z"/><path fill="#FBBC05" d="M10.2 28.1a14.5 14.5 0 010-8.2l-7.6-5.9a24 24 0 000 20l7.6-5.9z"/><path fill="#34A853" d="M24 48c6 0 11.3-2 15-5.4l-7.5-5.8c-2.1 1.4-4.7 2.2-7.5 2.2-6.4 0-11.9-3.5-13.8-9.2l-7.6 5.9C6.5 42.6 14.6 48 24 48z"/></svg>
-        Sign in with Google
+        Sign in<span class="long">&nbsp;with Google</span>
       </button>
       <div class="auth" id="authUser" hidden>
         <img id="authPhoto" alt="" /><span class="uname" id="authName"></span>
@@ -175,22 +193,41 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
           <div class="stat"><div class="l">Goal shift</div><div class="v" id="goalShift">—</div></div>
           <div class="stat"><div class="l">Working days</div><div class="v" id="workDays">—</div></div>
         </div>
-        <div class="verdict"><span class="mark"></span><p id="verdict">Your verdict will appear here.</p></div>
+        <div class="verdict"><span class="mark"></span><p id="verdict">Fill in the four numbers, then press Check purchase.</p></div>
       </div>
     </section>
 
     <section class="archive">
       <div class="archive-head">
         <div><span class="kicker">Archive</span><h2>Recent checks</h2></div>
-        <button class="clear" id="clearBtn" style="display:none">Clear</button>
+        <button type="button" class="clear" id="clearBtn" style="display:none">Clear</button>
       </div>
       <div id="history"></div>
     </section>
   </main>
-  <footer><span>Hindsight — a measure of cost</span></footer>
+<canvas id="confetti" aria-hidden="true"></canvas>
+  <footer>
+    <span>&copy; <span id="year"></span> Hindsight</span>
+    <nav aria-label="Footer">
+      <a href="https://github.com/paarthmishra-git/hindsight" target="_blank" rel="noopener noreferrer">Source on GitHub</a>
+      <a href="/docs">API docs</a>
+    </nav>
+  </footer>
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 </div>
 
 <script>
+// small toast messages (success / error), announced to screen readers
+function toast(msg, type) {
+  const box = document.getElementById("toasts"); if (!box) return;
+  const t = document.createElement("div");
+  t.className = "toast" + (type === "error" ? " error" : "");
+  t.textContent = msg; box.appendChild(t);
+  while (box.children.length > 3) box.firstChild.remove();
+  setTimeout(() => { t.classList.add("out"); setTimeout(() => t.remove(), 350); }, type === "error" ? 6000 : 3500);
+}
+document.getElementById("year").textContent = new Date().getFullYear();
+
 const R = 120, C = 2 * Math.PI * R;
 const arc = document.getElementById("arc");
 arc.setAttribute("stroke-dasharray", C);
@@ -216,6 +253,12 @@ document.getElementById("themeBtn").addEventListener("click", () => {
 });
 applyTheme(currentTheme());
 
+// sign-in buttons work even if Firebase fails to load; the module fills in window.hsAuth
+window.hsAuth = null;
+const authUnavailable = () => toast("Sign-in isn't available right now. Check your connection and reload the page.", "error");
+document.getElementById("signInBtn").addEventListener("click", () => window.hsAuth ? window.hsAuth.signIn() : authUnavailable());
+document.getElementById("signOutBtn").addEventListener("click", () => window.hsAuth ? window.hsAuth.signOut() : authUnavailable());
+
 // Backend assumes a fixed 160 working hours per month.
 const FIELDS = [
   { id: "price",   label: "Price",                   prefix: "₹", min: 0, max: 200000, step: 500 },
@@ -232,7 +275,7 @@ FIELDS.forEach(f => {
   field.className = "field";
   field.innerHTML = `
     <label for="i_${f.id}">${f.label}</label>
-    <div class="row">${f.prefix ? `<span class="pre">${f.prefix}</span>` : ""}<input type="number" id="i_${f.id}" inputmode="decimal" placeholder="0" />${f.unit ? `<span class="unit">${f.unit}</span>` : ""}</div>
+    <div class="row">${f.prefix ? `<span class="pre">${f.prefix}</span>` : ""}<input type="number" id="i_${f.id}" inputmode="decimal" />${f.unit ? `<span class="unit">${f.unit}</span>` : ""}</div>
     <input type="range" class="range-slider" id="s_${f.id}" min="${f.min}" max="${f.max}" step="${f.step}" value="0" aria-label="${f.label} slider" />
     ${f.cap ? `<span class="cap">${f.cap}</span>` : ""}`;
   inputsEl.appendChild(field);
@@ -243,7 +286,8 @@ actions.innerHTML = `
     <button type="submit" class="btn btn-primary" id="check">Check purchase</button>
     <button type="button" class="btn btn-ghost" id="example">Try an example</button>
   </div>
-  <p class="err" id="err" role="alert"></p>`;
+  <p class="err" id="err" role="alert"></p>
+  <p class="hint" id="hint" aria-live="polite"></p>`;
 inputsEl.appendChild(actions);
 
 const num = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
@@ -317,23 +361,35 @@ inputsEl.addEventListener("submit", async e => {
     projected_month_end_balance: num(state.left),
     goal_monthly_contribution: num(state.goal),
   };
-  if (!(body.price > 0) || !(body.monthly_income > 0)) {
-    $("err").textContent = "Enter a price and a monthly income above zero.";
+  const bad = !(body.price > 0) ? "price" : !(body.monthly_income > 0) ? "income" : null;
+  FIELDS.forEach(f => $("i_" + f.id).removeAttribute("aria-invalid"));
+  if (bad) {
+    $("err").textContent = bad === "price" ? "Enter a price above zero." : "Enter your monthly income above zero.";
+    $("i_" + bad).setAttribute("aria-invalid", "true"); $("i_" + bad).focus();
     return;
   }
-  const btn = $("check"); btn.disabled = true;
+  const btn = $("check"), label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Checking…";
+  const slow = setTimeout(() => { $("hint").textContent = "Waking the server up. The free plan sleeps when idle, so this can take up to a minute."; }, 3000);
+  const ctl = new AbortController(), kill = setTimeout(() => ctl.abort(), 70000);
   try {
     const res = await fetch("/simulate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: ctl.signal,
     });
-    if (!res.ok) throw new Error("Those numbers were rejected. Check each field.");
+    if (res.status === 422) throw new Error("Those numbers were rejected. Check each field.");
+    if (!res.ok) throw new Error("The server had a problem (" + res.status + "). Please try again in a moment.");
     show(await res.json(), body);
   } catch (err) {
-    $("err").textContent = err.message || "Could not reach the server. Try again.";
+    $("err").textContent = err.name === "AbortError" ? "The server took too long to respond. Please try again."
+      : err instanceof TypeError ? "Could not reach the server. Check your connection and try again."
+      : err.message;
   } finally {
-    btn.disabled = false;
+    clearTimeout(slow); clearTimeout(kill);
+    $("hint").textContent = "";
+    btn.disabled = false; btn.textContent = label;
   }
 });
 
@@ -358,7 +414,28 @@ function show(r, body) {
     verdict = "Fits inside your month without touching your savings goal.";
   }
   setVerdict(verdict);
+  if (r.month_end_after >= 0 && !r.goal_delay_months) confetti();
   saveResult({ price: body.price, hours: r.hours_of_life, days, monthEnd: r.month_end_after, verdict });
+}
+
+// confetti: a short burst on a clearly affordable check
+function confetti() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv = $("confetti"), cx = cv.getContext("2d");
+  cv.width = innerWidth; cv.height = innerHeight;
+  const css = getComputedStyle(document.documentElement);
+  const cols = [css.getPropertyValue("--accent").trim(), css.getPropertyValue("--foreground").trim(), css.getPropertyValue("--muted-fg").trim()];
+  const ox = cv.width / 2, oy = cv.height * 0.4;
+  const bits = Array.from({ length: 90 }, () => ({
+    x: ox, y: oy, vx: (Math.random() - .5) * 14, vy: -Math.random() * 12 - 3,
+    s: Math.random() * 6 + 3, c: cols[Math.floor(Math.random() * cols.length)], r: Math.random() * 6
+  }));
+  let f = 0;
+  (function tick() {
+    cx.clearRect(0, 0, cv.width, cv.height);
+    bits.forEach(b => { b.vy += .35; b.x += b.vx; b.y += b.vy; b.r += .2; cx.save(); cx.translate(b.x, b.y); cx.rotate(b.r); cx.fillStyle = b.c; cx.globalAlpha = Math.max(0, 1 - f / 110); cx.fillRect(-b.s / 2, -b.s / 2, b.s, b.s * .6); cx.restore(); });
+    if (++f < 110) requestAnimationFrame(tick); else cx.clearRect(0, 0, cv.width, cv.height);
+  })();
 }
 
 // history (localStorage, kept per signed-in user when available)
@@ -379,6 +456,7 @@ function renderHistory() {
   };
   box.innerHTML = '<div class="rows">' + items.map(it => `
     <div class="row-item">
+      <button type="button" class="rm" data-t="${it.t}" aria-label="Remove this check" title="Remove this check">&times;</button>
       <div class="cell"><span class="l">${fmtDate(it.t)}</span><span class="v-serif">${money(it.price)}</span></div>
       <div class="cell"><span class="l">Hours</span><span class="v-num">${it.hours < 10 ? it.hours.toFixed(1) : Math.round(it.hours)}</span></div>
       <div class="cell"><span class="l">Days</span><span class="v-num">${it.days.toFixed(1)}</span></div>
@@ -388,10 +466,22 @@ function renderHistory() {
 }
 function saveResult(item) {
   const next = [Object.assign({ t: Date.now() }, item), ...loadHistory()].slice(0, 5);
-  try { localStorage.setItem(hkey(), JSON.stringify(next)); } catch {}
+  try { localStorage.setItem(hkey(), JSON.stringify(next)); toast("Saved to your recent checks."); }
+  catch { toast("This check couldn't be saved in your browser (private mode or storage full).", "error"); }
   renderHistory();
 }
-$("clearBtn").addEventListener("click", () => { try { localStorage.removeItem(hkey()); } catch {} renderHistory(); });
+$("history").addEventListener("click", e => {
+  const b = e.target.closest(".rm"); if (!b) return;
+  const next = loadHistory().filter(x => String(x.t) !== b.dataset.t);
+  try { localStorage.setItem(hkey(), JSON.stringify(next)); toast("Check removed."); }
+  catch { toast("Couldn't update your saved checks in this browser.", "error"); }
+  renderHistory();
+});
+$("clearBtn").addEventListener("click", () => {
+  try { localStorage.removeItem(hkey()); toast("Recent checks cleared."); }
+  catch { toast("Couldn't clear your saved checks in this browser.", "error"); }
+  renderHistory();
+});
 renderHistory();
 </script>
 
@@ -403,16 +493,35 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChang
 const $ = id => document.getElementById(id);
 
 async function start() {
-  const firebaseConfig = await fetch("/firebase-config").then(r => r.json());
+  let firebaseConfig;
+  try {
+    firebaseConfig = await fetch("/firebase-config").then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    if (!firebaseConfig.apiKey) throw new Error("missing key");
+  } catch (err) { console.error("Firebase config unavailable:", err); return; }
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
+  let signingIn = false;
 
-  $("signInBtn").onclick = () => signInWithPopup(auth, provider).catch(err => {
-    $("err").textContent = "Sign-in didn't go through. Try again.";
-    console.error(err);
-  });
-  $("signOutBtn").onclick = () => signOut(auth);
+  const reasons = {
+    "auth/popup-blocked": "Your browser blocked the sign-in window. Allow pop-ups for this site and try again.",
+    "auth/network-request-failed": "Couldn't reach Google. Check your connection and try again.",
+    "auth/unauthorized-domain": "Sign-in isn't enabled for this web address.",
+  };
+  window.hsAuth = {
+    signIn() {
+      signingIn = true;
+      signInWithPopup(auth, provider).catch(err => {
+        signingIn = false;
+        if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") return;
+        console.error(err);
+        toast(reasons[err.code] || "Sign-in didn't go through. Please try again.", "error");
+      });
+    },
+    signOut() {
+      signOut(auth).then(() => toast("Signed out.")).catch(() => toast("Couldn't sign you out. Please try again.", "error"));
+    },
+  };
 
   onAuthStateChanged(auth, user => {
     const greet = $("greeting");
@@ -425,6 +534,7 @@ async function start() {
       const first = (user.displayName || "").split(" ")[0];
       greet.textContent = first ? "Welcome back, " + first + "." : "Welcome back.";
       greet.hidden = false;
+      if (signingIn) { signingIn = false; toast("Signed in as " + (user.displayName || user.email || "you") + "."); }
     } else {
       $("signInBtn").hidden = false;
       $("authUser").hidden = true;
