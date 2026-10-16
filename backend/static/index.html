@@ -134,6 +134,17 @@ footer a:hover,footer a:focus-visible{color:var(--accent);border-bottom-color:va
 input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 input[type=number]{-moz-appearance:textfield;appearance:textfield}
 :is(button,input):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn[hidden]{display:none}
+.receipt-row{padding-bottom:2rem}
+dialog{background:var(--background);color:var(--foreground);border:1px solid var(--border);padding:1.5rem;width:min(30rem,calc(100% - 2rem));max-height:92vh;overflow:auto;font-family:var(--mono)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h2{font-family:var(--serif);font-weight:300;font-size:1.75rem;margin:0 0 1rem}
+dialog canvas{display:block;width:100%;height:auto;border:1px solid var(--border)}
+.rname{margin:1.25rem 0 0}
+.rname label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted-fg);margin-bottom:.5rem}
+.rname input{width:100%;min-width:0;background:transparent;border:0;border-bottom:1px solid var(--border);outline:none;font-family:var(--mono);font-size:1.1rem;color:var(--foreground);padding:.25rem 0 .5rem}
+.rname input:focus{border-color:var(--accent)}
+.dlg-actions{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.5rem}
 .toasts{position:fixed;left:50%;bottom:1.25rem;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:.5rem;width:min(28rem,calc(100% - 2rem));pointer-events:none}
 .toast{pointer-events:auto;background:var(--foreground);color:var(--background);font-size:13px;line-height:1.5;padding:.85rem 1.1rem;border-left:3px solid var(--accent);animation:verdict-in .3s ease-out}
 .toast.error{border-left-color:var(--bad)}
@@ -194,6 +205,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
           <div class="stat"><div class="l">Working days</div><div class="v" id="workDays">—</div></div>
         </div>
         <div class="verdict"><span class="mark"></span><p id="verdict">Fill in the four numbers, then press Check purchase.</p></div>
+        <div class="receipt-row"><button type="button" class="btn btn-ghost" id="receiptBtn" hidden>Make a receipt</button></div>
       </div>
     </section>
 
@@ -213,6 +225,16 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
       <a href="/docs">API docs</a>
     </nav>
   </footer>
+  <dialog id="receiptDlg" aria-labelledby="receiptTitle">
+    <h2 id="receiptTitle">Your receipt</h2>
+    <canvas id="receiptCv" width="1080" height="1480" role="img" aria-label="Receipt showing what this purchase costs in hours of work"></canvas>
+    <div class="rname"><label for="receiptName">What is it? (optional)</label><input id="receiptName" maxlength="24" autocomplete="off" /></div>
+    <div class="dlg-actions">
+      <button type="button" class="btn btn-primary" id="receiptShare" hidden>Share</button>
+      <button type="button" class="btn btn-primary" id="receiptDownload">Download</button>
+      <button type="button" class="btn btn-ghost" id="receiptClose">Close</button>
+    </div>
+  </dialog>
   <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
 </div>
 
@@ -416,7 +438,97 @@ function show(r, body) {
   setVerdict(verdict);
   if (r.month_end_after >= 0 && !r.goal_delay_months) confetti();
   saveResult({ price: body.price, hours: r.hours_of_life, days, monthEnd: r.month_end_after, verdict });
+  lastCheck = { price: body.price, hours: r.hours_of_life, days, delay: r.goal_delay_months, short: r.month_end_after < 0, t: Date.now() };
+  $("receiptBtn").hidden = false;
 }
+
+// ---- shareable receipt (drawn on a canvas, no libraries) ----
+// Shows price, hours and status only. Income and balances are never printed on it.
+let lastCheck = null;
+const SERIF = '"Fraunces", Georgia, serif', MONO = '"IBM Plex Mono", ui-monospace, Consolas, monospace';
+function drawReceipt(cv, d, item) {
+  const c = cv.getContext("2d"), W = 1080, H = 1480, px = 110, pw = 860, py = 90, ph = 1300, cx = W / 2;
+  const INK = "#1c1916", MUTE = "#6b655c", ACC = "#c2540a";
+  const spaced = (px_) => { if ("letterSpacing" in c) c.letterSpacing = px_ + "px"; };
+  const text = (t, x, y, font, color, align) => { c.font = font; c.fillStyle = color; c.textAlign = align || "left"; c.fillText(t, x, y); };
+  const dash = (y, pat) => { c.save(); c.setLineDash(pat || [10, 8]); c.strokeStyle = MUTE; c.lineWidth = 2; c.beginPath(); c.moveTo(px + 70, y); c.lineTo(px + pw - 70, y); c.stroke(); c.restore(); };
+  const row = (label, value, y) => {
+    spaced(2); text(label, px + 70, y, "500 26px " + MONO, INK); spaced(0);
+    text(value, px + pw - 70, y, "600 30px " + MONO, INK, "right");
+    spaced(2); c.font = "500 26px " + MONO; const a = px + 70 + c.measureText(label).width + 30; spaced(0);
+    c.font = "600 30px " + MONO; const b = px + pw - 70 - c.measureText(value).width - 24;
+    c.save(); c.setLineDash([2, 9]); c.lineCap = "round"; c.strokeStyle = MUTE; c.lineWidth = 3; c.beginPath(); c.moveTo(a, y - 8); c.lineTo(b, y - 8); c.stroke(); c.restore();
+  };
+  // backdrop
+  const bg = c.createRadialGradient(cx, H / 2, 100, cx, H / 2, 900); bg.addColorStop(0, "#2b2723"); bg.addColorStop(1, "#14110f");
+  c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  // paper with torn top and bottom edges
+  c.save(); c.shadowColor = "rgba(0,0,0,.5)"; c.shadowBlur = 50; c.shadowOffsetY = 24; c.fillStyle = "#fbf8f1";
+  const n = 30, st = pw / n, a = 12; c.beginPath(); c.moveTo(px, py);
+  for (let i = 0; i < n; i++) { c.lineTo(px + i * st + st / 2, py - a); c.lineTo(px + (i + 1) * st, py); }
+  c.lineTo(px + pw, py + ph);
+  for (let i = n; i > 0; i--) { c.lineTo(px + i * st - st / 2, py + ph + a); c.lineTo(px + (i - 1) * st, py + ph); }
+  c.closePath(); c.fill(); c.restore();
+  // header
+  c.fillStyle = ACC; c.beginPath(); c.arc(cx - 128, 205, 9, 0, 7); c.fill();
+  text("hindsight", cx - 100, 226, "400 58px " + SERIF, INK);
+  spaced(5); text("PURCHASE RECEIPT", cx, 285, "500 22px " + MONO, MUTE, "center");
+  spaced(1); const when = new Date(d.t).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).toUpperCase();
+  text(when + "  ·  NO. " + String(d.t).slice(-6), cx, 325, "400 20px " + MONO, MUTE, "center"); spaced(0);
+  dash(365);
+  // item + price
+  const name = (item || "").trim().toUpperCase() || "PURCHASE";
+  c.font = "600 30px " + MONO; const priceTxt = money(d.price);
+  let nm = name; while (nm.length > 3 && c.measureText(nm).width > 400) nm = nm.slice(0, -1);
+  text(nm, px + 70, 430, "600 30px " + MONO, INK); text(priceTxt, px + pw - 70, 430, "600 30px " + MONO, INK, "right");
+  // the big number
+  spaced(6); text("THIS COSTS YOU", cx, 520, "500 24px " + MONO, MUTE, "center"); spaced(0);
+  const hrs = d.hours < 10 ? d.hours.toFixed(1) : String(Math.round(d.hours));
+  let size = 210; c.font = "300 " + size + "px " + SERIF; while (c.measureText(hrs).width > 680 && size > 60) { size -= 10; c.font = "300 " + size + "px " + SERIF; }
+  text(hrs, cx, 520 + 40 + size * 0.78, "300 " + size + "px " + SERIF, INK, "center");
+  spaced(6); text("HOURS OF WORK", cx, 520 + 40 + size * 0.78 + 56, "500 26px " + MONO, ACC, "center"); spaced(0);
+  const y0 = 520 + 40 + size * 0.78 + 56 + 50; dash(y0);
+  row("WORKING DAYS", d.days.toFixed(1), y0 + 62);
+  row("OF A MONTH", Math.round(Math.min(1, d.hours / 160) * 100) + "%", y0 + 124);
+  row("GOAL SHIFT", d.delay ? "+" + d.delay + " MO" : "ON TRACK", y0 + 186);
+  dash(y0 + 226);
+  // status stamp
+  const stamp = d.short ? ["SHORT THIS MONTH", "#a3261a"] : d.delay ? ["GOAL DELAYED", "#b45309"] : ["ON TRACK", "#1f7a4d"];
+  c.save(); c.translate(cx, y0 + 318); c.rotate(-0.09); spaced(4); c.font = "700 46px " + MONO;
+  const sw = c.measureText(stamp[0]).width + 70; c.strokeStyle = stamp[1]; c.fillStyle = stamp[1]; c.globalAlpha = 0.88; c.lineWidth = 7;
+  c.strokeRect(-sw / 2, -50, sw, 100); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(stamp[0], 0, 4); spaced(0); c.restore();
+  // barcode (decorative, seeded from the receipt number)
+  let seed = d.t % 100000; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  c.fillStyle = INK; let bx = cx - 240; const by = py + ph - 150;
+  while (bx < cx + 240) { const w = 2 + Math.floor(rnd() * 7); c.fillRect(bx, by, w, 64); bx += w + 2 + Math.floor(rnd() * 5); }
+  spaced(2); text(location.host.toUpperCase(), cx, py + ph - 52, "400 20px " + MONO, MUTE, "center"); spaced(0);
+  text("Know what it costs before it costs you.", cx, H - 42, "400 24px " + MONO, "#a39b8e", "center");
+}
+async function openReceipt() {
+  if (!lastCheck) return;
+  try { await Promise.all([document.fonts.load("300 80px Fraunces"), document.fonts.load("400 40px Fraunces"), document.fonts.load("500 20px 'IBM Plex Mono'"), document.fonts.load("600 20px 'IBM Plex Mono'"), document.fonts.load("700 20px 'IBM Plex Mono'")]); } catch {}
+  const canShare = navigator.canShare && navigator.canShare({ files: [new File([""], "r.png", { type: "image/png" })] });
+  $("receiptShare").hidden = !canShare;
+  drawReceipt($("receiptCv"), lastCheck, $("receiptName").value);
+  if (!$("receiptDlg").open) $("receiptDlg").showModal();
+}
+const receiptBlob = () => new Promise(res => $("receiptCv").toBlob(res, "image/png"));
+const receiptFile = blob => new File([blob], "hindsight-receipt-" + new Date().toISOString().slice(0, 10) + ".png", { type: "image/png" });
+$("receiptBtn").addEventListener("click", openReceipt);
+$("receiptName").addEventListener("input", () => drawReceipt($("receiptCv"), lastCheck, $("receiptName").value));
+$("receiptClose").addEventListener("click", () => $("receiptDlg").close());
+$("receiptDlg").addEventListener("click", e => { if (e.target === $("receiptDlg")) $("receiptDlg").close(); });
+$("receiptDownload").addEventListener("click", async () => {
+  const blob = await receiptBlob(); if (!blob) return toast("Couldn't create the image. Please try again.", "error");
+  const f = receiptFile(blob), url = URL.createObjectURL(f), a = document.createElement("a");
+  a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast("Receipt downloaded.");
+});
+$("receiptShare").addEventListener("click", async () => {
+  const blob = await receiptBlob(); if (!blob) return toast("Couldn't create the image. Please try again.", "error");
+  try { await navigator.share({ files: [receiptFile(blob)], title: "My Hindsight receipt", text: "What this costs in hours of my life." }); }
+  catch (e) { if (e.name !== "AbortError") toast("Couldn't open sharing. Try Download instead.", "error"); }
+});
 
 // confetti: a short burst on a clearly affordable check
 function confetti() {
