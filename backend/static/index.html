@@ -231,7 +231,9 @@ dialog canvas{display:block;width:100%;height:auto;border:1px solid var(--border
     <div class="rname"><label for="receiptName">What is it? (optional)</label><input id="receiptName" maxlength="24" autocomplete="off" /></div>
     <div class="dlg-actions">
       <button type="button" class="btn btn-primary" id="receiptShare" hidden>Share</button>
-      <button type="button" class="btn btn-primary" id="receiptDownload">Download</button>
+      <button type="button" class="btn btn-primary" id="receiptDownload">Save image</button>
+      <button type="button" class="btn btn-primary" id="receiptVideo" hidden>Save video</button>
+      <button type="button" class="btn btn-ghost" id="receiptReplay">Replay</button>
       <button type="button" class="btn btn-ghost" id="receiptClose">Close</button>
     </div>
   </dialog>
@@ -446,7 +448,8 @@ function show(r, body) {
 // Shows price, hours and status only. Income and balances are never printed on it.
 let lastCheck = null;
 const SERIF = '"Fraunces", Georgia, serif', MONO = '"IBM Plex Mono", ui-monospace, Consolas, monospace';
-function drawReceipt(cv, d, item) {
+function drawReceipt(cv, d, item, a) {
+  a = a || { feed: 1, count: 1, stamp: 1, slot: 0 };
   const c = cv.getContext("2d"), W = 1080, H = 1480, px = 110, pw = 860, py = 90, ph = 1300, cx = W / 2;
   const INK = "#1c1916", MUTE = "#6b655c", ACC = "#c2540a";
   const spaced = (px_) => { if ("letterSpacing" in c) c.letterSpacing = px_ + "px"; };
@@ -462,12 +465,19 @@ function drawReceipt(cv, d, item) {
   // backdrop
   const bg = c.createRadialGradient(cx, H / 2, 100, cx, H / 2, 900); bg.addColorStop(0, "#2b2723"); bg.addColorStop(1, "#14110f");
   c.fillStyle = bg; c.fillRect(0, 0, W, H);
+  // while animating, the paper feeds down out of a slot at the top and shakes when stamped
+  c.save();
+  if (a.feed < 1 || a.count < 1 || a.stamp < 1 || a.slot > 0) {
+    c.beginPath(); c.rect(0, 62, W, H); c.clip();
+    const shake = a.stamp > 0 && a.stamp < 1 ? Math.sin(a.stamp * 38) * (1 - a.stamp) * 7 : 0;
+    c.translate(0, -(1 - a.feed) * (py + ph + 14 - 62) + shake);
+  }
   // paper with torn top and bottom edges
   c.save(); c.shadowColor = "rgba(0,0,0,.5)"; c.shadowBlur = 50; c.shadowOffsetY = 24; c.fillStyle = "#fbf8f1";
-  const n = 30, st = pw / n, a = 12; c.beginPath(); c.moveTo(px, py);
-  for (let i = 0; i < n; i++) { c.lineTo(px + i * st + st / 2, py - a); c.lineTo(px + (i + 1) * st, py); }
+  const n = 30, st = pw / n, th = 12; c.beginPath(); c.moveTo(px, py);
+  for (let i = 0; i < n; i++) { c.lineTo(px + i * st + st / 2, py - th); c.lineTo(px + (i + 1) * st, py); }
   c.lineTo(px + pw, py + ph);
-  for (let i = n; i > 0; i--) { c.lineTo(px + i * st - st / 2, py + ph + a); c.lineTo(px + (i - 1) * st, py + ph); }
+  for (let i = n; i > 0; i--) { c.lineTo(px + i * st - st / 2, py + ph + th); c.lineTo(px + (i - 1) * st, py + ph); }
   c.closePath(); c.fill(); c.restore();
   // header
   c.fillStyle = ACC; c.beginPath(); c.arc(cx - 128, 205, 9, 0, 7); c.fill();
@@ -483,9 +493,9 @@ function drawReceipt(cv, d, item) {
   text(nm, px + 70, 430, "600 30px " + MONO, INK); text(priceTxt, px + pw - 70, 430, "600 30px " + MONO, INK, "right");
   // the big number
   spaced(6); text("THIS COSTS YOU", cx, 520, "500 24px " + MONO, MUTE, "center"); spaced(0);
-  const hrs = d.hours < 10 ? d.hours.toFixed(1) : String(Math.round(d.hours));
+  const fmt = v => d.hours < 10 ? v.toFixed(1) : String(Math.round(v)), hrs = fmt(d.hours), shown = fmt(d.hours * a.count);
   let size = 210; c.font = "300 " + size + "px " + SERIF; while (c.measureText(hrs).width > 680 && size > 60) { size -= 10; c.font = "300 " + size + "px " + SERIF; }
-  text(hrs, cx, 520 + 40 + size * 0.78, "300 " + size + "px " + SERIF, INK, "center");
+  text(shown, cx, 520 + 40 + size * 0.78, "300 " + size + "px " + SERIF, INK, "center");
   spaced(6); text("HOURS OF WORK", cx, 520 + 40 + size * 0.78 + 56, "500 26px " + MONO, ACC, "center"); spaced(0);
   const y0 = 520 + 40 + size * 0.78 + 56 + 50; dash(y0);
   row("WORKING DAYS", d.days.toFixed(1), y0 + 62);
@@ -494,40 +504,85 @@ function drawReceipt(cv, d, item) {
   dash(y0 + 226);
   // status stamp
   const stamp = d.short ? ["SHORT THIS MONTH", "#a3261a"] : d.delay ? ["GOAL DELAYED", "#b45309"] : ["ON TRACK", "#1f7a4d"];
-  c.save(); c.translate(cx, y0 + 318); c.rotate(-0.09); spaced(4); c.font = "700 46px " + MONO;
-  const sw = c.measureText(stamp[0]).width + 70; c.strokeStyle = stamp[1]; c.fillStyle = stamp[1]; c.globalAlpha = 0.88; c.lineWidth = 7;
-  c.strokeRect(-sw / 2, -50, sw, 100); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(stamp[0], 0, 4); spaced(0); c.restore();
+  if (a.stamp > 0) { c.save(); c.translate(cx, y0 + 318); c.rotate(-0.09); const k = 1 + (1 - a.stamp) * 0.9; c.scale(k, k); spaced(4); c.font = "700 46px " + MONO;
+  const sw = c.measureText(stamp[0]).width + 70; c.strokeStyle = stamp[1]; c.fillStyle = stamp[1]; c.globalAlpha = 0.88 * Math.min(1, a.stamp * 4); c.lineWidth = 7;
+  c.strokeRect(-sw / 2, -50, sw, 100); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(stamp[0], 0, 4); spaced(0); c.restore(); }
   // barcode (decorative, seeded from the receipt number)
   let seed = d.t % 100000; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   c.fillStyle = INK; let bx = cx - 240; const by = py + ph - 150;
   while (bx < cx + 240) { const w = 2 + Math.floor(rnd() * 7); c.fillRect(bx, by, w, 64); bx += w + 2 + Math.floor(rnd() * 5); }
   spaced(2); text(location.host.toUpperCase(), cx, py + ph - 52, "400 20px " + MONO, MUTE, "center"); spaced(0);
+  c.restore();
+  if (a.slot > 0) {
+    c.save(); c.globalAlpha = a.slot; const g = c.createLinearGradient(0, 28, 0, 64); g.addColorStop(0, "#3a352f"); g.addColorStop(1, "#0d0b0a");
+    c.fillStyle = g; c.beginPath(); c.roundRect ? c.roundRect(px - 40, 28, pw + 80, 36, 14) : c.rect(px - 40, 28, pw + 80, 36); c.fill();
+    c.fillStyle = "#000"; c.fillRect(px - 10, 54, pw + 20, 6); c.restore();
+  }
   text("Know what it costs before it costs you.", cx, H - 42, "400 24px " + MONO, "#a39b8e", "center");
 }
+// animation timeline in seconds: the paper feeds out, the number counts up, the stamp lands
+const RT = { feed: [0.3, 3.0], count: [1.6, 3.4], stamp: [3.4, 3.9], slot: [2.8, 3.4], total: 5.4 };
+function frameAnim(t) {
+  const seg = r => Math.min(1, Math.max(0, (t - r[0]) / (r[1] - r[0]))), ease = x => 1 - Math.pow(1 - x, 3);
+  return { feed: ease(Math.round(seg(RT.feed) * 70) / 70), count: ease(seg(RT.count)), stamp: seg(RT.stamp), slot: 1 - seg(RT.slot) };
+}
+let animRaf = 0, recording = false;
+function playReceipt(done) {
+  cancelAnimationFrame(animRaf);
+  const cv = $("receiptCv"), t0 = performance.now();
+  const step = now => {
+    const t = (now - t0) / 1000;
+    if (t < RT.total) { drawReceipt(cv, lastCheck, $("receiptName").value, frameAnim(t)); animRaf = requestAnimationFrame(step); }
+    else { drawReceipt(cv, lastCheck, $("receiptName").value); if (done) done(); }
+  };
+  animRaf = requestAnimationFrame(step);
+}
+const pickMime = () => window.MediaRecorder && HTMLCanvasElement.prototype.captureStream
+  ? ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) : undefined;
 async function openReceipt() {
   if (!lastCheck) return;
   try { await Promise.all([document.fonts.load("300 80px Fraunces"), document.fonts.load("400 40px Fraunces"), document.fonts.load("500 20px 'IBM Plex Mono'"), document.fonts.load("600 20px 'IBM Plex Mono'"), document.fonts.load("700 20px 'IBM Plex Mono'")]); } catch {}
   const canShare = navigator.canShare && navigator.canShare({ files: [new File([""], "r.png", { type: "image/png" })] });
   $("receiptShare").hidden = !canShare;
-  drawReceipt($("receiptCv"), lastCheck, $("receiptName").value);
+  $("receiptVideo").hidden = !pickMime();
   if (!$("receiptDlg").open) $("receiptDlg").showModal();
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) drawReceipt($("receiptCv"), lastCheck, $("receiptName").value);
+  else playReceipt();
 }
-const receiptBlob = () => new Promise(res => $("receiptCv").toBlob(res, "image/png"));
-const receiptFile = blob => new File([blob], "hindsight-receipt-" + new Date().toISOString().slice(0, 10) + ".png", { type: "image/png" });
+// images are always drawn fresh and finished, so saving mid-animation never gives a half-printed receipt
+const receiptBlob = () => new Promise(res => { const oc = document.createElement("canvas"); oc.width = 1080; oc.height = 1480; drawReceipt(oc, lastCheck, $("receiptName").value); oc.toBlob(res, "image/png"); });
+const stamp = ext => "hindsight-receipt-" + new Date().toISOString().slice(0, 10) + "." + ext;
+function saveBlob(blob, name) { const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
 $("receiptBtn").addEventListener("click", openReceipt);
-$("receiptName").addEventListener("input", () => drawReceipt($("receiptCv"), lastCheck, $("receiptName").value));
+$("receiptName").addEventListener("input", () => { if (recording) return; cancelAnimationFrame(animRaf); drawReceipt($("receiptCv"), lastCheck, $("receiptName").value); });
 $("receiptClose").addEventListener("click", () => $("receiptDlg").close());
 $("receiptDlg").addEventListener("click", e => { if (e.target === $("receiptDlg")) $("receiptDlg").close(); });
+$("receiptDlg").addEventListener("close", () => { if (!recording) cancelAnimationFrame(animRaf); });
+$("receiptReplay").addEventListener("click", () => { if (!recording) playReceipt(); });
 $("receiptDownload").addEventListener("click", async () => {
   const blob = await receiptBlob(); if (!blob) return toast("Couldn't create the image. Please try again.", "error");
-  const f = receiptFile(blob), url = URL.createObjectURL(f), a = document.createElement("a");
-  a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
-  toast("Receipt downloaded.");
+  saveBlob(blob, stamp("png")); toast("Receipt downloaded.");
 });
 $("receiptShare").addEventListener("click", async () => {
   const blob = await receiptBlob(); if (!blob) return toast("Couldn't create the image. Please try again.", "error");
-  try { await navigator.share({ files: [receiptFile(blob)], title: "My Hindsight receipt", text: "What this costs in hours of my life." }); }
-  catch (e) { if (e.name !== "AbortError") toast("Couldn't open sharing. Try Download instead.", "error"); }
+  try { await navigator.share({ files: [new File([blob], stamp("png"), { type: "image/png" })], title: "My Hindsight receipt", text: "What this costs in hours of my life." }); }
+  catch (e) { if (e.name !== "AbortError") toast("Couldn't open sharing. Try Save image instead.", "error"); }
+});
+$("receiptVideo").addEventListener("click", async () => {
+  const mime = pickMime(), cv = $("receiptCv"), btn = $("receiptVideo");
+  if (!mime) return toast("This browser can't record video. Use Save image instead.", "error");
+  if (recording) return;
+  recording = true; btn.disabled = true; const label = btn.textContent; btn.textContent = "Recording…";
+  try {
+    const stream = cv.captureStream(30), rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000 }), chunks = [];
+    rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(r => { rec.onstop = r; });
+    rec.start(); await new Promise(res => playReceipt(res)); await new Promise(r => setTimeout(r, 300)); rec.stop(); await stopped;
+    stream.getTracks().forEach(t => t.stop());
+    const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
+    saveBlob(new Blob(chunks, { type: mime.split(";")[0] }), stamp(ext)); toast("Receipt video saved (" + ext.toUpperCase() + ").");
+  } catch (e) { console.error(e); toast("Couldn't record the video. Use Save image instead.", "error"); }
+  finally { recording = false; btn.disabled = false; btn.textContent = label; }
 });
 
 // confetti: a short burst on a clearly affordable check
