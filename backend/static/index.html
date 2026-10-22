@@ -227,7 +227,7 @@ dialog canvas{display:block;width:100%;height:auto;border:1px solid var(--border
   </footer>
   <dialog id="receiptDlg" aria-labelledby="receiptTitle">
     <h2 id="receiptTitle">Your receipt</h2>
-    <canvas id="receiptCv" width="1080" height="1480" role="img" aria-label="Receipt showing what this purchase costs in hours of work"></canvas>
+    <canvas id="receiptCv" width="1080" height="1544" role="img" aria-label="Receipt showing what this purchase costs in hours of work"></canvas>
     <div class="rname"><label for="receiptName">What is it? (optional)</label><input id="receiptName" maxlength="24" autocomplete="off" /></div>
     <div class="dlg-actions">
       <button type="button" class="btn btn-primary" id="receiptShare" hidden>Share</button>
@@ -448,92 +448,116 @@ function show(r, body) {
 // Shows price, hours and status only. Income and balances are never printed on it.
 let lastCheck = null;
 const SERIF = '"Fraunces", Georgia, serif', MONO = '"IBM Plex Mono", ui-monospace, Consolas, monospace';
-function drawReceipt(cv, d, item, a) {
-  a = a || { feed: 1, count: 1, stamp: 1, slot: 0 };
-  const c = cv.getContext("2d"), W = 1080, H = 1480, px = 110, pw = 860, py = 90, ph = 1300, cx = W / 2;
-  const INK = "#1c1916", MUTE = "#6b655c", ACC = "#c2540a";
-  const spaced = (px_) => { if ("letterSpacing" in c) c.letterSpacing = px_ + "px"; };
+const RW = 1080, RH = 1544, RPX = 110, RPW = 860, RPY = 90, RPH = 1364, RCX = RW / 2, RTOTAL = 6.8;
+const INK = "#1c1916", MUTE = "#6b655c", ACC = "#c2540a";
+
+// Static layers (backdrop + paper with all fixed text) are drawn once; each animation frame only composites them
+function buildReceipt(d, item) {
+  const mk = () => { const k = document.createElement("canvas"); k.width = RW; k.height = RH; return k; };
+  const bg = mk(), paper = mk(), b = bg.getContext("2d"), c = paper.getContext("2d");
+  const g = b.createRadialGradient(RCX, RH / 2, 100, RCX, RH / 2, 950); g.addColorStop(0, "#2b2723"); g.addColorStop(1, "#14110f");
+  b.fillStyle = g; b.fillRect(0, 0, RW, RH);
+  const spaced = v => { if ("letterSpacing" in c) c.letterSpacing = v + "px"; };
   const text = (t, x, y, font, color, align) => { c.font = font; c.fillStyle = color; c.textAlign = align || "left"; c.fillText(t, x, y); };
-  const dash = (y, pat) => { c.save(); c.setLineDash(pat || [10, 8]); c.strokeStyle = MUTE; c.lineWidth = 2; c.beginPath(); c.moveTo(px + 70, y); c.lineTo(px + pw - 70, y); c.stroke(); c.restore(); };
+  const dash = y => { c.save(); c.setLineDash([10, 8]); c.strokeStyle = MUTE; c.lineWidth = 2; c.beginPath(); c.moveTo(RPX + 70, y); c.lineTo(RPX + RPW - 70, y); c.stroke(); c.restore(); };
   const row = (label, value, y) => {
-    spaced(2); text(label, px + 70, y, "500 26px " + MONO, INK); spaced(0);
-    text(value, px + pw - 70, y, "600 30px " + MONO, INK, "right");
-    spaced(2); c.font = "500 26px " + MONO; const a = px + 70 + c.measureText(label).width + 30; spaced(0);
-    c.font = "600 30px " + MONO; const b = px + pw - 70 - c.measureText(value).width - 24;
-    c.save(); c.setLineDash([2, 9]); c.lineCap = "round"; c.strokeStyle = MUTE; c.lineWidth = 3; c.beginPath(); c.moveTo(a, y - 8); c.lineTo(b, y - 8); c.stroke(); c.restore();
+    spaced(2); text(label, RPX + 70, y, "500 26px " + MONO, INK); spaced(0); text(value, RPX + RPW - 70, y, "600 30px " + MONO, INK, "right");
+    spaced(2); c.font = "500 26px " + MONO; const x1 = RPX + 70 + c.measureText(label).width + 30; spaced(0);
+    c.font = "600 30px " + MONO; const x2 = RPX + RPW - 70 - c.measureText(value).width - 24;
+    c.save(); c.setLineDash([2, 9]); c.lineCap = "round"; c.strokeStyle = MUTE; c.lineWidth = 3; c.beginPath(); c.moveTo(x1, y - 8); c.lineTo(x2, y - 8); c.stroke(); c.restore();
   };
-  // backdrop
-  const bg = c.createRadialGradient(cx, H / 2, 100, cx, H / 2, 900); bg.addColorStop(0, "#2b2723"); bg.addColorStop(1, "#14110f");
-  c.fillStyle = bg; c.fillRect(0, 0, W, H);
-  // while animating, the paper feeds down out of a slot at the top and shakes when stamped
-  c.save();
-  if (a.feed < 1 || a.count < 1 || a.stamp < 1 || a.slot > 0) {
-    c.beginPath(); c.rect(0, 62, W, H); c.clip();
-    const shake = a.stamp > 0 && a.stamp < 1 ? Math.sin(a.stamp * 38) * (1 - a.stamp) * 7 : 0;
-    c.translate(0, -(1 - a.feed) * (py + ph + 14 - 62) + shake);
-  }
-  // paper with torn top and bottom edges
   c.save(); c.shadowColor = "rgba(0,0,0,.5)"; c.shadowBlur = 50; c.shadowOffsetY = 24; c.fillStyle = "#fbf8f1";
-  const n = 30, st = pw / n, th = 12; c.beginPath(); c.moveTo(px, py);
-  for (let i = 0; i < n; i++) { c.lineTo(px + i * st + st / 2, py - th); c.lineTo(px + (i + 1) * st, py); }
-  c.lineTo(px + pw, py + ph);
-  for (let i = n; i > 0; i--) { c.lineTo(px + i * st - st / 2, py + ph + th); c.lineTo(px + (i - 1) * st, py + ph); }
+  const n = 30, st = RPW / n, th = 12; c.beginPath(); c.moveTo(RPX, RPY);
+  for (let i = 0; i < n; i++) { c.lineTo(RPX + i * st + st / 2, RPY - th); c.lineTo(RPX + (i + 1) * st, RPY); }
+  c.lineTo(RPX + RPW, RPY + RPH);
+  for (let i = n; i > 0; i--) { c.lineTo(RPX + i * st - st / 2, RPY + RPH + th); c.lineTo(RPX + (i - 1) * st, RPY + RPH); }
   c.closePath(); c.fill(); c.restore();
-  // header
-  c.fillStyle = ACC; c.beginPath(); c.arc(cx - 128, 205, 9, 0, 7); c.fill();
-  text("hindsight", cx - 100, 226, "400 58px " + SERIF, INK);
-  spaced(5); text("PURCHASE RECEIPT", cx, 285, "500 22px " + MONO, MUTE, "center");
+  c.fillStyle = ACC; c.beginPath(); c.arc(RCX - 128, 205, 9, 0, 7); c.fill();
+  text("hindsight", RCX - 100, 226, "400 58px " + SERIF, INK);
+  spaced(5); text("PURCHASE RECEIPT", RCX, 285, "500 22px " + MONO, MUTE, "center");
   spaced(1); const when = new Date(d.t).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).toUpperCase();
-  text(when + "  ·  NO. " + String(d.t).slice(-6), cx, 325, "400 20px " + MONO, MUTE, "center"); spaced(0);
+  text(when + "  ·  NO. " + String(d.t).slice(-6), RCX, 325, "400 20px " + MONO, MUTE, "center"); spaced(0);
   dash(365);
-  // item + price
-  const name = (item || "").trim().toUpperCase() || "PURCHASE";
-  c.font = "600 30px " + MONO; const priceTxt = money(d.price);
-  let nm = name; while (nm.length > 3 && c.measureText(nm).width > 400) nm = nm.slice(0, -1);
-  text(nm, px + 70, 430, "600 30px " + MONO, INK); text(priceTxt, px + pw - 70, 430, "600 30px " + MONO, INK, "right");
-  // the big number
-  spaced(6); text("THIS COSTS YOU", cx, 520, "500 24px " + MONO, MUTE, "center"); spaced(0);
-  const fmt = v => d.hours < 10 ? v.toFixed(1) : String(Math.round(v)), hrs = fmt(d.hours), shown = fmt(d.hours * a.count);
-  let size = 210; c.font = "300 " + size + "px " + SERIF; while (c.measureText(hrs).width > 680 && size > 60) { size -= 10; c.font = "300 " + size + "px " + SERIF; }
-  text(shown, cx, 520 + 40 + size * 0.78, "300 " + size + "px " + SERIF, INK, "center");
-  spaced(6); text("HOURS OF WORK", cx, 520 + 40 + size * 0.78 + 56, "500 26px " + MONO, ACC, "center"); spaced(0);
-  const y0 = 520 + 40 + size * 0.78 + 56 + 50; dash(y0);
-  row("WORKING DAYS", d.days.toFixed(1), y0 + 62);
-  row("OF A MONTH", Math.round(Math.min(1, d.hours / 160) * 100) + "%", y0 + 124);
-  row("GOAL SHIFT", d.delay ? "+" + d.delay + " MO" : "ON TRACK", y0 + 186);
-  dash(y0 + 226);
-  // status stamp
-  const stamp = d.short ? ["SHORT THIS MONTH", "#a3261a"] : d.delay ? ["GOAL DELAYED", "#b45309"] : ["ON TRACK", "#1f7a4d"];
-  if (a.stamp > 0) { c.save(); c.translate(cx, y0 + 318); c.rotate(-0.09); const k = 1 + (1 - a.stamp) * 0.9; c.scale(k, k); spaced(4); c.font = "700 46px " + MONO;
-  const sw = c.measureText(stamp[0]).width + 70; c.strokeStyle = stamp[1]; c.fillStyle = stamp[1]; c.globalAlpha = 0.88 * Math.min(1, a.stamp * 4); c.lineWidth = 7;
-  c.strokeRect(-sw / 2, -50, sw, 100); c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(stamp[0], 0, 4); spaced(0); c.restore(); }
-  // barcode (decorative, seeded from the receipt number)
+  let nm = (item || "").trim().toUpperCase() || "PURCHASE"; c.font = "600 30px " + MONO; while (nm.length > 3 && c.measureText(nm).width > 400) nm = nm.slice(0, -1);
+  text(nm, RPX + 70, 430, "600 30px " + MONO, INK); text(money(d.price), RPX + RPW - 70, 430, "600 30px " + MONO, INK, "right");
+  spaced(6); text("THIS COSTS YOU", RCX, 520, "500 24px " + MONO, MUTE, "center"); spaced(0);
+  const fmt = v => d.hours < 10 ? v.toFixed(1) : String(Math.round(v));
+  let size = 210; c.font = "300 " + size + "px " + SERIF; while (c.measureText(fmt(d.hours)).width > 680 && size > 60) { size -= 10; c.font = "300 " + size + "px " + SERIF; }
+  const numY = 560 + size * 0.78, y0 = numY + 150;
+  spaced(6); text("HOURS OF WORK", RCX, numY + 56, "500 26px " + MONO, ACC, "center"); spaced(0);
+  dash(y0); row("WORKING DAYS", d.days.toFixed(1), y0 + 62); row("OF A MONTH", Math.round(Math.min(1, d.hours / 160) * 100) + "%", y0 + 124);
+  row("GOAL SHIFT", d.delay ? "+" + d.delay + " MO" : "ON TRACK", y0 + 186); dash(y0 + 226);
   let seed = d.t % 100000; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  c.fillStyle = INK; let bx = cx - 240; const by = py + ph - 150;
-  while (bx < cx + 240) { const w = 2 + Math.floor(rnd() * 7); c.fillRect(bx, by, w, 64); bx += w + 2 + Math.floor(rnd() * 5); }
-  spaced(2); text(location.host.toUpperCase(), cx, py + ph - 52, "400 20px " + MONO, MUTE, "center"); spaced(0);
-  c.restore();
-  if (a.slot > 0) {
-    c.save(); c.globalAlpha = a.slot; const g = c.createLinearGradient(0, 28, 0, 64); g.addColorStop(0, "#3a352f"); g.addColorStop(1, "#0d0b0a");
-    c.fillStyle = g; c.beginPath(); c.roundRect ? c.roundRect(px - 40, 28, pw + 80, 36, 14) : c.rect(px - 40, 28, pw + 80, 36); c.fill();
-    c.fillStyle = "#000"; c.fillRect(px - 10, 54, pw + 20, 6); c.restore();
+  c.fillStyle = INK; let bx = RCX - 240; while (bx < RCX + 240) { const w = 2 + Math.floor(rnd() * 7); c.fillRect(bx, RPY + RPH - 150, w, 64); bx += w + 2 + Math.floor(rnd() * 5); }
+  spaced(2); text(location.host.toUpperCase(), RCX, RPY + RPH - 52, "400 20px " + MONO, MUTE, "center"); spaced(0);
+  const status = d.short ? ["SHORT THIS MONTH", "#a3261a"] : d.delay ? ["GOAL DELAYED", "#b45309"] : ["ON TRACK", "#1f7a4d"];
+  spaced(4); c.font = "700 46px " + MONO; const stampW = c.measureText(status[0]).width + 70; spaced(0);
+  return { bg, paper, fmt, size, numY, y0, status, stampW, good: !d.short && !d.delay };
+}
+
+// One frame at time t (seconds). t = Infinity is the finished receipt, used for images and the last frame.
+function paintReceipt(cv, L, d, t) {
+  if (!isFinite(t)) t = 99;
+  const c = cv.getContext("2d"), seg = (a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+  const out = x => 1 - Math.pow(1 - x, 3), back = x => 1 + 2.9 * Math.pow(x - 1, 3) + 1.9 * Math.pow(x - 1, 2), smooth = x => x * x * (3 - 2 * x);
+  const slotIn = out(seg(0, 0.7)), slotOut = 1 - seg(3.0, 3.6);
+  // the printer moves the paper in short line steps, each one eased, so it feels mechanical but stays smooth at 60fps
+  const k = seg(0.5, 3.1) * 64, whole = Math.floor(k), feed = Math.min(1, (whole + out(Math.min(1, (k - whole) / 0.45))) / 64);
+  const count = out(seg(1.4, 3.3)), sp = seg(3.5, 4.1), tau = t - 3.72;
+  const env = smooth(seg(4.3, 4.7)) * (1 - smooth(seg(5.9, 6.5))), sh = sp > 0 && sp < 1 ? Math.pow(1 - sp, 2) * 10 : 0;
+  const dx = Math.sin(sp * 61) * sh, dy = -(1 - feed) * (RPY + RPH + 14 - 62) + Math.sin(sp * 47) * sh + Math.sin((t - 4.3) * 3.1) * 5 * env;
+  c.globalAlpha = 1; c.drawImage(L.bg, 0, 0);
+  if (tau > 0 && tau < 0.2) { c.fillStyle = "rgba(255,255,255," + 0.07 * (1 - tau / 0.2) + ")"; c.fillRect(0, 0, RW, RH); }
+  c.save(); c.beginPath(); c.rect(0, 62, RW, RH); c.clip();
+  c.translate(dx + RCX, dy + RPY + RPH / 2); c.rotate(Math.sin((t - 4.3) * 2.3) * 0.0045 * env); c.translate(-RCX, -(RPY + RPH / 2));
+  c.drawImage(L.paper, 0, 0);
+  c.font = "300 " + L.size + "px " + SERIF; c.fillStyle = INK; c.textAlign = "center"; c.fillText(L.fmt(d.hours * count), RCX, L.numY);
+  // one block per working day, filling as the hours count up
+  const nb = Math.min(20, Math.max(1, Math.ceil(d.days))), gap = 8, bw = Math.min(44, (720 - (nb - 1) * gap) / nb), bx0 = RCX - (nb * bw + (nb - 1) * gap) / 2, by = L.numY + 90, filled = Math.min(nb, d.days * count);
+  for (let i = 0; i < nb; i++) {
+    const x = bx0 + i * (bw + gap), f = Math.min(1, Math.max(0, filled - i));
+    c.strokeStyle = "rgba(107,101,92,.5)"; c.lineWidth = 2; c.strokeRect(x, by, bw, 26);
+    if (f > 0) { c.fillStyle = ACC; c.fillRect(x, by, bw * f, 26); }
   }
-  text("Know what it costs before it costs you.", cx, H - 42, "400 24px " + MONO, "#a39b8e", "center");
+  if (sp > 0) {
+    c.save(); c.translate(RCX, L.y0 + 318); c.rotate(-0.09); const s = 1 + (1 - back(sp)) * 1.3; c.scale(s, s);
+    if ("letterSpacing" in c) c.letterSpacing = "4px";
+    c.strokeStyle = L.status[1]; c.fillStyle = L.status[1]; c.globalAlpha = 0.88 * Math.min(1, sp * 5); c.lineWidth = 7;
+    c.strokeRect(-L.stampW / 2, -50, L.stampW, 100); c.font = "700 46px " + MONO; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(L.status[0], 0, 4); c.restore();
+  }
+  const sx = seg(4.6, 5.8); // a soft light sweep across the paper
+  if (sx > 0 && sx < 1) { const x = -260 + sx * (RW + 520), g = c.createLinearGradient(x - 120, 0, x + 120, 0); g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,.38)"); g.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g; c.fillRect(RPX, RPY, RPW, RPH); }
+  c.restore();
+  if (tau > 0 && tau < 1.4) {
+    const ox = RCX, oy = L.y0 + 318, hue = L.status[1], palette = [ACC, "#1f7a4d", "#e6b422", INK];
+    if (tau < 0.5) { c.strokeStyle = hue; c.globalAlpha = 0.4 * (1 - tau / 0.5); c.lineWidth = 5; c.beginPath(); c.arc(ox, oy, 60 + tau * 1300, 0, 7); c.stroke(); }
+    for (let i = 0; i < 70; i++) {   // ink specks, or confetti when the purchase is fine
+      const r1 = Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1, r2 = Math.abs(Math.sin(i * 78.233) * 12345.678) % 1, r3 = Math.abs(Math.sin(i * 39.346) * 9871.12) % 1;
+      const ang = -Math.PI * (0.05 + 0.9 * r1), v = 500 + 900 * r2, x = ox + Math.cos(ang) * v * tau * 0.9, y = oy + Math.sin(ang) * v * tau * 0.9 + 900 * tau * tau;
+      c.globalAlpha = Math.max(0, 1 - tau / 1.4); c.fillStyle = L.good ? palette[i % 4] : hue;
+      if (L.good) { c.save(); c.translate(x, y); c.rotate(tau * 8 * (r3 - 0.5) * 4); c.fillRect(-6, -3, 12, 6); c.restore(); } else { c.beginPath(); c.arc(x, y, 2 + 5 * r3, 0, 7); c.fill(); }
+    }
+    c.globalAlpha = 1;
+  }
+  if (slotOut > 0) {   // printer slot with a blinking status light
+    const y = 28 - (1 - slotIn) * 90; c.save(); c.globalAlpha = slotOut * Math.min(1, slotIn * 2);
+    const g = c.createLinearGradient(0, y, 0, y + 36); g.addColorStop(0, "#3a352f"); g.addColorStop(1, "#0d0b0a"); c.fillStyle = g;
+    c.beginPath(); c.roundRect ? c.roundRect(RPX - 40, y, RPW + 80, 36, 14) : c.rect(RPX - 40, y, RPW + 80, 36); c.fill();
+    c.fillStyle = "#000"; c.fillRect(RPX - 10, y + 26, RPW + 20, 6);
+    c.fillStyle = ACC; c.globalAlpha = slotOut * (0.45 + 0.55 * Math.abs(Math.sin(t * 9))); c.beginPath(); c.arc(RPX + RPW + 4, y + 18, 6, 0, 7); c.fill(); c.restore();
+  }
+  c.font = "400 24px " + MONO; c.fillStyle = "#a39b8e"; c.textAlign = "center"; c.globalAlpha = seg(4.8, 5.6); c.fillText("Know what it costs before it costs you.", RCX, RH - 42); c.globalAlpha = 1;
 }
-// animation timeline in seconds: the paper feeds out, the number counts up, the stamp lands
-const RT = { feed: [0.3, 3.0], count: [1.6, 3.4], stamp: [3.4, 3.9], slot: [2.8, 3.4], total: 5.4 };
-function frameAnim(t) {
-  const seg = r => Math.min(1, Math.max(0, (t - r[0]) / (r[1] - r[0]))), ease = x => 1 - Math.pow(1 - x, 3);
-  return { feed: ease(Math.round(seg(RT.feed) * 70) / 70), count: ease(seg(RT.count)), stamp: seg(RT.stamp), slot: 1 - seg(RT.slot) };
-}
+const drawReceipt = (cv, d, item, t) => paintReceipt(cv, buildReceipt(d, item), d, t === undefined ? Infinity : t);
+
 let animRaf = 0, recording = false;
-function playReceipt(done) {
+function playReceipt(done, onFrame) {
   cancelAnimationFrame(animRaf);
-  const cv = $("receiptCv"), t0 = performance.now();
+  const cv = $("receiptCv"), L = buildReceipt(lastCheck, $("receiptName").value), t0 = performance.now();
   const step = now => {
     const t = (now - t0) / 1000;
-    if (t < RT.total) { drawReceipt(cv, lastCheck, $("receiptName").value, frameAnim(t)); animRaf = requestAnimationFrame(step); }
-    else { drawReceipt(cv, lastCheck, $("receiptName").value); if (done) done(); }
+    if (t < RTOTAL) { paintReceipt(cv, L, lastCheck, t); if (onFrame) onFrame(); animRaf = requestAnimationFrame(step); }
+    else { paintReceipt(cv, L, lastCheck, Infinity); if (onFrame) onFrame(); if (done) done(); }
   };
   animRaf = requestAnimationFrame(step);
 }
@@ -550,8 +574,8 @@ async function openReceipt() {
   else playReceipt();
 }
 // images are always drawn fresh and finished, so saving mid-animation never gives a half-printed receipt
-const receiptBlob = () => new Promise(res => { const oc = document.createElement("canvas"); oc.width = 1080; oc.height = 1480; drawReceipt(oc, lastCheck, $("receiptName").value); oc.toBlob(res, "image/png"); });
-const stamp = ext => "hindsight-receipt-" + new Date().toISOString().slice(0, 10) + "." + ext;
+const receiptBlob = () => new Promise(res => { const oc = document.createElement("canvas"); oc.width = RW; oc.height = RH; drawReceipt(oc, lastCheck, $("receiptName").value); oc.toBlob(res, "image/png"); });
+const fileName = ext => "hindsight-receipt-" + new Date().toISOString().slice(0, 10) + "." + ext;
 function saveBlob(blob, name) { const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
 $("receiptBtn").addEventListener("click", openReceipt);
 $("receiptName").addEventListener("input", () => { if (recording) return; cancelAnimationFrame(animRaf); drawReceipt($("receiptCv"), lastCheck, $("receiptName").value); });
@@ -561,26 +585,28 @@ $("receiptDlg").addEventListener("close", () => { if (!recording) cancelAnimatio
 $("receiptReplay").addEventListener("click", () => { if (!recording) playReceipt(); });
 $("receiptDownload").addEventListener("click", async () => {
   const blob = await receiptBlob(); if (!blob) return toast("Couldn't create the image. Please try again.", "error");
-  saveBlob(blob, stamp("png")); toast("Receipt downloaded.");
+  saveBlob(blob, fileName("png")); toast("Receipt downloaded.");
 });
 $("receiptShare").addEventListener("click", async () => {
   const blob = await receiptBlob(); if (!blob) return toast("Couldn't create the image. Please try again.", "error");
-  try { await navigator.share({ files: [new File([blob], stamp("png"), { type: "image/png" })], title: "My Hindsight receipt", text: "What this costs in hours of my life." }); }
+  try { await navigator.share({ files: [new File([blob], fileName("png"), { type: "image/png" })], title: "My Hindsight receipt", text: "What this costs in hours of my life." }); }
   catch (e) { if (e.name !== "AbortError") toast("Couldn't open sharing. Try Save image instead.", "error"); }
 });
 $("receiptVideo").addEventListener("click", async () => {
   const mime = pickMime(), cv = $("receiptCv"), btn = $("receiptVideo");
   if (!mime) return toast("This browser can't record video. Use Save image instead.", "error");
   if (recording) return;
-  recording = true; btn.disabled = true; const label = btn.textContent; btn.textContent = "Recording…";
+  recording = true; btn.disabled = true; const label = btn.textContent; btn.textContent = "Recording…"; toast("Recording at 60fps. Keep this tab open for about 7 seconds.");
   try {
-    const stream = cv.captureStream(30), rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6000000 }), chunks = [];
+    // recorded a little smaller than the preview: encoding fewer pixels lets more devices keep a true 60fps
+    const rc = document.createElement("canvas"); rc.width = Math.round(RW * 0.67 / 2) * 2; rc.height = Math.round(RH * 0.67 / 2) * 2; const rx = rc.getContext("2d");
+    const stream = rc.captureStream(60), rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 10000000 }), chunks = [];
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     const stopped = new Promise(r => { rec.onstop = r; });
-    rec.start(); await new Promise(res => playReceipt(res)); await new Promise(r => setTimeout(r, 300)); rec.stop(); await stopped;
+    rec.start(); await new Promise(res => playReceipt(res, () => rx.drawImage(cv, 0, 0, rc.width, rc.height))); await new Promise(r => setTimeout(r, 300)); rec.stop(); await stopped;
     stream.getTracks().forEach(t => t.stop());
     const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
-    saveBlob(new Blob(chunks, { type: mime.split(";")[0] }), stamp(ext)); toast("Receipt video saved (" + ext.toUpperCase() + ").");
+    saveBlob(new Blob(chunks, { type: mime.split(";")[0] }), fileName(ext)); toast("Receipt video saved (" + ext.toUpperCase() + ").");
   } catch (e) { console.error(e); toast("Couldn't record the video. Use Save image instead.", "error"); }
   finally { recording = false; btn.disabled = false; btn.textContent = label; }
 });
