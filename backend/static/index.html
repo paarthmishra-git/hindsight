@@ -550,7 +550,7 @@ function paintReceipt(cv, L, d, t) {
 }
 const drawReceipt = (cv, d, item, t) => paintReceipt(cv, buildReceipt(d, item), d, t === undefined ? Infinity : t);
 
-let animRaf = 0, recording = false;
+let animRaf = 0, recording = false, exactCfg = null;
 function playReceipt(done, onFrame) {
   cancelAnimationFrame(animRaf);
   const cv = $("receiptCv"), L = buildReceipt(lastCheck, $("receiptName").value), t0 = performance.now();
@@ -568,7 +568,8 @@ async function openReceipt() {
   try { await Promise.all([document.fonts.load("300 80px Fraunces"), document.fonts.load("400 40px Fraunces"), document.fonts.load("500 20px 'IBM Plex Mono'"), document.fonts.load("600 20px 'IBM Plex Mono'"), document.fonts.load("700 20px 'IBM Plex Mono'")]); } catch {}
   const canShare = navigator.canShare && navigator.canShare({ files: [new File([""], "r.png", { type: "image/png" })] });
   $("receiptShare").hidden = !canShare;
-  $("receiptVideo").hidden = !pickMime();
+  exactCfg = await pickCfg();
+  $("receiptVideo").hidden = !(exactCfg || pickMime());
   if (!$("receiptDlg").open) $("receiptDlg").showModal();
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) drawReceipt($("receiptCv"), lastCheck, $("receiptName").value);
   else playReceipt();
@@ -592,7 +593,7 @@ $("receiptShare").addEventListener("click", async () => {
   try { await navigator.share({ files: [new File([blob], fileName("png"), { type: "image/png" })], title: "My Hindsight receipt", text: "What this costs in hours of my life." }); }
   catch (e) { if (e.name !== "AbortError") toast("Couldn't open sharing. Try Save image instead.", "error"); }
 });
-$("receiptVideo").addEventListener("click", async () => {
+async function recordRealtime() {
   const mime = pickMime(), cv = $("receiptCv"), btn = $("receiptVideo");
   if (!mime) return toast("This browser can't record video. Use Save image instead.", "error");
   if (recording) return;
@@ -609,7 +610,74 @@ $("receiptVideo").addEventListener("click", async () => {
     saveBlob(new Blob(chunks, { type: mime.split(";")[0] }), fileName(ext)); toast("Receipt video saved (" + ext.toUpperCase() + ").");
   } catch (e) { console.error(e); toast("Couldn't record the video. Use Save image instead.", "error"); }
   finally { recording = false; btn.disabled = false; btn.textContent = label; }
-});
+}
+
+// ---- exact 60fps export: every frame is drawn at a precise 1/60 s step and encoded offline, so it never depends on device speed ----
+async function pickCfg() {
+  if (!window.VideoEncoder || !window.VideoFrame) return null;
+  for (const codec of ["avc1.64002A", "avc1.4D002A", "avc1.42002A"]) {
+    const cfg = { codec, width: RW, height: RH, bitrate: 12000000, framerate: 60, avc: { format: "avc" }, latencyMode: "quality" };
+    try { if ((await VideoEncoder.isConfigSupported(cfg)).supported) return cfg; } catch {}
+  }
+  return null;
+}
+// minimal MP4 writer: one H.264 track, constant frame rate, index first so the file streams and shares well
+function writeMp4(w, h, fps, avcC, samples) {
+  const u32 = n => [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255], u16 = n => [(n >> 8) & 255, n & 255], str = t => [...t].map(ch => ch.charCodeAt(0)), zeros = n => new Array(n).fill(0);
+  const cat = parts => { let n = 0; for (const p of parts) n += p.length; const o = new Uint8Array(n); let k = 0; for (const p of parts) { o.set(p, k); k += p.length; } return o; };
+  const box = (type, ...parts) => { const body = cat(parts.map(p => p instanceof Uint8Array ? p : Uint8Array.from(p))); return cat([Uint8Array.from([...u32(body.length + 8), ...str(type)]), body]); };
+  const N = samples.length, dur = Math.round(N * 1000 / fps), keys = samples.map((x, i) => x.key ? i + 1 : 0).filter(Boolean);
+  const matrix = [...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x40000000)];
+  const moov = off => box("moov",
+    box("mvhd", [0, 0, 0, 0], u32(0), u32(0), u32(1000), u32(dur), u32(0x10000), u16(0x100), u16(0), zeros(8), matrix, zeros(24), u32(2)),
+    box("trak",
+      box("tkhd", [0, 0, 0, 3], u32(0), u32(0), u32(1), u32(0), u32(dur), zeros(8), u16(0), u16(0), u16(0), u16(0), matrix, u32(w << 16), u32(h << 16)),
+      box("mdia",
+        box("mdhd", [0, 0, 0, 0], u32(0), u32(0), u32(fps), u32(N), u16(0x55c4), u16(0)),
+        box("hdlr", [0, 0, 0, 0], u32(0), str("vide"), zeros(12), str("VideoHandler"), [0]),
+        box("minf",
+          box("vmhd", [0, 0, 0, 1], zeros(8)),
+          box("dinf", box("dref", [0, 0, 0, 0], u32(1), box("url ", [0, 0, 0, 1]))),
+          box("stbl",
+            box("stsd", [0, 0, 0, 0], u32(1), box("avc1", zeros(6), u16(1), zeros(16), u16(w), u16(h), u32(0x480000), u32(0x480000), u32(0), u16(1), zeros(32), u16(0x18), u16(0xffff), box("avcC", avcC))),
+            box("stts", [0, 0, 0, 0], u32(1), u32(N), u32(1)),
+            box("stss", [0, 0, 0, 0], u32(keys.length), ...keys.map(u32)),
+            box("stsc", [0, 0, 0, 0], u32(1), u32(1), u32(N), u32(1)),
+            box("stsz", [0, 0, 0, 0], u32(0), u32(N), ...samples.map(x => u32(x.data.length))),
+            box("stco", [0, 0, 0, 0], u32(1), u32(off)))))));
+  const ftyp = box("ftyp", str("isom"), u32(0x200), str("isom"), str("iso2"), str("avc1"), str("mp41"));
+  return new Blob([ftyp, moov(ftyp.length + moov(0).length + 8), box("mdat", ...samples.map(x => x.data))], { type: "video/mp4" });
+}
+async function exportExact() {
+  const btn = $("receiptVideo"), label = btn.textContent, fps = 60, total = Math.round((RTOTAL + 0.5) * fps); let failed = false;
+  recording = true; btn.disabled = true; toast("Rendering your video at exactly 60fps. Keep this tab open, it can take a little while.");
+  try {
+    const oc = document.createElement("canvas"); oc.width = RW; oc.height = RH;
+    const L = buildReceipt(lastCheck, $("receiptName").value), samples = []; let avcC = null, fail = null;
+    const enc = new VideoEncoder({
+      output: (chunk, meta) => {
+        if (!avcC && meta && meta.decoderConfig && meta.decoderConfig.description) avcC = new Uint8Array(meta.decoderConfig.description).slice();
+        const data = new Uint8Array(chunk.byteLength); chunk.copyTo(data); samples.push({ data, key: chunk.type === "key" });
+      },
+      error: e => { fail = e; }
+    });
+    enc.configure(exactCfg);
+    for (let i = 0; i < total; i++) {
+      paintReceipt(oc, L, lastCheck, i / fps < RTOTAL ? i / fps : Infinity);
+      const frame = new VideoFrame(oc, { timestamp: Math.round(i * 1e6 / fps), duration: Math.round(1e6 / fps) });
+      enc.encode(frame, { keyFrame: i % fps === 0 }); frame.close();
+      while (enc.encodeQueueSize > 4 && !fail) await new Promise(r => setTimeout(r, 5));
+      if (fail) throw fail;
+      if (i % 6 === 0) { btn.textContent = "Rendering " + Math.round(i / total * 100) + "%"; await new Promise(r => setTimeout(r)); }
+    }
+    await enc.flush(); enc.close();
+    if (fail || !avcC || samples.length !== total) throw fail || new Error("incomplete video");
+    saveBlob(writeMp4(RW, RH, fps, avcC, samples), fileName("mp4")); toast("Receipt video saved (MP4, exactly 60fps).");
+  } catch (e) { console.error(e); failed = true; }
+  finally { recording = false; btn.disabled = false; btn.textContent = label; }
+  if (failed) { exactCfg = null; if (pickMime()) { toast("Exact 60fps export isn't available here, switching to the standard recorder."); recordRealtime(); } else toast("Couldn't render the video. Use Save image instead.", "error"); }
+}
+$("receiptVideo").addEventListener("click", () => { if (!recording) return exactCfg ? exportExact() : recordRealtime(); });
 
 // confetti: a short burst on a clearly affordable check
 function confetti() {
