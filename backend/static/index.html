@@ -139,7 +139,7 @@ input[type=number]{-moz-appearance:textfield;appearance:textfield}
 dialog{background:var(--background);color:var(--foreground);border:1px solid var(--border);padding:1.5rem;width:min(30rem,calc(100% - 2rem));max-height:92vh;overflow:auto;font-family:var(--mono)}
 dialog::backdrop{background:rgba(0,0,0,.6)}
 dialog h2{font-family:var(--serif);font-weight:300;font-size:1.75rem;margin:0 0 1rem}
-dialog canvas{display:block;width:100%;height:auto;border:1px solid var(--border)}
+dialog canvas{display:block;width:auto;height:auto;max-width:100%;max-height:62vh;margin:0 auto;border:1px solid var(--border)}
 .rname{margin:1.25rem 0 0}
 .rname label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--muted-fg);margin-bottom:.5rem}
 .rname input{width:100%;min-width:0;background:transparent;border:0;border-bottom:1px solid var(--border);outline:none;font-family:var(--mono);font-size:1.1rem;color:var(--foreground);padding:.25rem 0 .5rem}
@@ -227,7 +227,7 @@ dialog canvas{display:block;width:100%;height:auto;border:1px solid var(--border
   </footer>
   <dialog id="receiptDlg" aria-labelledby="receiptTitle">
     <h2 id="receiptTitle">Your receipt</h2>
-    <canvas id="receiptCv" width="1080" height="1544" role="img" aria-label="Receipt showing what this purchase costs in hours of work"></canvas>
+    <canvas id="receiptCv" width="1080" height="1920" role="img" aria-label="Receipt showing what this purchase costs in hours of work"></canvas>
     <div class="rname"><label for="receiptName">What is it? (optional)</label><input id="receiptName" maxlength="24" autocomplete="off" /></div>
     <div class="dlg-actions">
       <button type="button" class="btn btn-primary" id="receiptShare" hidden>Share</button>
@@ -448,17 +448,36 @@ function show(r, body) {
 // Shows price, hours and status only. Income and balances are never printed on it.
 let lastCheck = null;
 const SERIF = '"Fraunces", Georgia, serif', MONO = '"IBM Plex Mono", ui-monospace, Consolas, monospace';
-const RW = 1080, RH = 1544, RPX = 110, RPW = 860, RPY = 90, RPH = 1364, RCX = RW / 2, RTOTAL = 6.8;
+const RW = 1080, RH = 1920, RH0 = 1544, OFF = 245, RPX = 110, RPW = 860, RPY = 90, RPH = 1364, RCX = RW / 2, RTOTAL = 8.6;
+const MX = 190, MY = 70, MW = 700, MH = 250, EDGE = 306;
 const INK = "#1c1916", MUTE = "#6b655c", ACC = "#c2540a";
+const rr = (c, x, y, w, h, r) => { c.beginPath(); if (c.roundRect) c.roundRect(x, y, w, h, r); else c.rect(x, y, w, h); };
 
-// Static layers (backdrop + paper with all fixed text) are drawn once; each animation frame only composites them
+// Static layers (studio + machine body, paper with all fixed text, the price tag) are drawn once; each frame only composites them
 function buildReceipt(d, item) {
-  const mk = () => { const k = document.createElement("canvas"); k.width = RW; k.height = RH; return k; };
-  const bg = mk(), paper = mk(), b = bg.getContext("2d"), c = paper.getContext("2d");
-  const g = b.createRadialGradient(RCX, RH / 2, 100, RCX, RH / 2, 950); g.addColorStop(0, "#2b2723"); g.addColorStop(1, "#14110f");
-  b.fillStyle = g; b.fillRect(0, 0, RW, RH);
+  const mk = (w, h) => { const k = document.createElement("canvas"); k.width = w; k.height = h; return k; };
+  const bg = mk(RW, RH), paper = mk(RW, RH0), tag = mk(300, 190), b = bg.getContext("2d"), c = paper.getContext("2d"), t2 = tag.getContext("2d");
+  const g = b.createRadialGradient(RCX, 760, 80, RCX, 900, 1400); g.addColorStop(0, "#fcfbf9"); g.addColorStop(1, "#e4e1da"); b.fillStyle = g; b.fillRect(0, 0, RW, RH);
+  b.save(); b.shadowColor = "rgba(60,45,30,.35)"; b.shadowBlur = 70; b.shadowOffsetY = 34; b.fillStyle = "#cdc8bd"; rr(b, MX, MY, MW, MH, 36); b.fill(); b.restore();
+  const bodyG = b.createLinearGradient(0, MY, 0, MY + MH); bodyG.addColorStop(0, "#ebe8e1"); bodyG.addColorStop(0.5, "#d6d2c9"); bodyG.addColorStop(1, "#bfbaaf");
+  b.fillStyle = bodyG; rr(b, MX, MY, MW, MH, 36); b.fill();
+  b.strokeStyle = "rgba(255,255,255,.85)"; b.lineWidth = 3; rr(b, MX + 1.5, MY + 1.5, MW - 3, MH - 3, 35); b.stroke();
+  b.fillStyle = "#9d988d"; rr(b, MX + 36, MY + 40, 110, 90, 12); b.fill(); b.fillStyle = "#6f6a60"; for (let i = 0; i < 5; i++) { rr(b, MX + 52 + i * 18, MY + 54, 8, 62, 4); b.fill(); }
+  b.fillStyle = "#1b1a17"; rr(b, MX + 176, MY + 42, 260, 86, 14); b.fill();
+  b.fillStyle = "#aaa59a"; b.beginPath(); b.arc(MX + 500, MY + 86, 31, 0, 7); b.fill();
+  b.fillStyle = "#a49f94"; b.beginPath(); b.arc(MX + 596, MY + 86, 52, 0, 7); b.fill();
+  b.fillStyle = "#12110f"; rr(b, MX + 70, MY + 210, MW - 140, 26, 13); b.fill();
+  b.fillStyle = "rgba(255,255,255,.55)"; rr(b, MX + 78, MY + 238, MW - 156, 3, 1.5); b.fill();
+
+  let nm = (item || "").trim().toUpperCase() || "PURCHASE"; c.font = "600 30px " + MONO; while (nm.length > 3 && c.measureText(nm).width > 400) nm = nm.slice(0, -1);
+  t2.fillStyle = "#fffdf8"; rr(t2, 4, 4, 292, 182, 8); t2.fill(); t2.strokeStyle = "rgba(0,0,0,.12)"; t2.lineWidth = 2; t2.stroke();
+  t2.fillStyle = "#d4cfc2"; t2.beginPath(); t2.arc(34, 34, 9, 0, 7); t2.fill();
+  if ("letterSpacing" in t2) t2.letterSpacing = "3px"; t2.font = "500 18px " + MONO; t2.fillStyle = MUTE; t2.textAlign = "left"; t2.fillText("PRICE", 60, 40);
+  if ("letterSpacing" in t2) t2.letterSpacing = "0px"; let ps = 58; t2.font = "400 " + ps + "px " + SERIF; while (t2.measureText(money(d.price)).width > 250 && ps > 24) { ps -= 4; t2.font = "400 " + ps + "px " + SERIF; }
+  t2.fillStyle = INK; t2.textAlign = "center"; t2.fillText(money(d.price), 150, 118); t2.font = "500 19px " + MONO; t2.fillStyle = MUTE; t2.fillText(nm.slice(0, 20), 150, 160);
+
   const spaced = v => { if ("letterSpacing" in c) c.letterSpacing = v + "px"; };
-  const text = (t, x, y, font, color, align) => { c.font = font; c.fillStyle = color; c.textAlign = align || "left"; c.fillText(t, x, y); };
+  const text = (s, x, y, font, color, align) => { c.font = font; c.fillStyle = color; c.textAlign = align || "left"; c.fillText(s, x, y); };
   const dash = y => { c.save(); c.setLineDash([10, 8]); c.strokeStyle = MUTE; c.lineWidth = 2; c.beginPath(); c.moveTo(RPX + 70, y); c.lineTo(RPX + RPW - 70, y); c.stroke(); c.restore(); };
   const row = (label, value, y) => {
     spaced(2); text(label, RPX + 70, y, "500 26px " + MONO, INK); spaced(0); text(value, RPX + RPW - 70, y, "600 30px " + MONO, INK, "right");
@@ -466,7 +485,7 @@ function buildReceipt(d, item) {
     c.font = "600 30px " + MONO; const x2 = RPX + RPW - 70 - c.measureText(value).width - 24;
     c.save(); c.setLineDash([2, 9]); c.lineCap = "round"; c.strokeStyle = MUTE; c.lineWidth = 3; c.beginPath(); c.moveTo(x1, y - 8); c.lineTo(x2, y - 8); c.stroke(); c.restore();
   };
-  c.save(); c.shadowColor = "rgba(0,0,0,.5)"; c.shadowBlur = 50; c.shadowOffsetY = 24; c.fillStyle = "#fbf8f1";
+  c.save(); c.shadowColor = "rgba(60,45,30,.3)"; c.shadowBlur = 44; c.shadowOffsetY = 22; c.fillStyle = "#fbf8f1";
   const n = 30, st = RPW / n, th = 12; c.beginPath(); c.moveTo(RPX, RPY);
   for (let i = 0; i < n; i++) { c.lineTo(RPX + i * st + st / 2, RPY - th); c.lineTo(RPX + (i + 1) * st, RPY); }
   c.lineTo(RPX + RPW, RPY + RPH);
@@ -478,7 +497,6 @@ function buildReceipt(d, item) {
   spaced(1); const when = new Date(d.t).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }).toUpperCase();
   text(when + "  ·  NO. " + String(d.t).slice(-6), RCX, 325, "400 20px " + MONO, MUTE, "center"); spaced(0);
   dash(365);
-  let nm = (item || "").trim().toUpperCase() || "PURCHASE"; c.font = "600 30px " + MONO; while (nm.length > 3 && c.measureText(nm).width > 400) nm = nm.slice(0, -1);
   text(nm, RPX + 70, 430, "600 30px " + MONO, INK); text(money(d.price), RPX + RPW - 70, 430, "600 30px " + MONO, INK, "right");
   spaced(6); text("THIS COSTS YOU", RCX, 520, "500 24px " + MONO, MUTE, "center"); spaced(0);
   const fmt = v => d.hours < 10 ? v.toFixed(1) : String(Math.round(v));
@@ -492,27 +510,87 @@ function buildReceipt(d, item) {
   spaced(2); text(location.host.toUpperCase(), RCX, RPY + RPH - 52, "400 20px " + MONO, MUTE, "center"); spaced(0);
   const status = d.short ? ["SHORT THIS MONTH", "#a3261a"] : d.delay ? ["GOAL DELAYED", "#b45309"] : ["ON TRACK", "#1f7a4d"];
   spaced(4); c.font = "700 46px " + MONO; const stampW = c.measureText(status[0]).width + 70; spaced(0);
-  return { bg, paper, fmt, size, numY, y0, status, stampW, good: !d.short && !d.delay };
+  return { bg, paper, tag, fmt, size, numY, y0, status, stampW, good: !d.short && !d.delay };
 }
 
-// One frame at time t (seconds). t = Infinity is the finished receipt, used for images and the last frame.
+// The machine: a screen that reads the price then counts hours, a knob that turns, a button that lights while it runs
+function drawMachine(c, L, d, t, seg, run, jx, jy) {
+  c.save(); c.translate(jx, jy);
+  const sx = MX + 176 + 130, sy = MY + 85, smooth = x => x * x * (3 - 2 * x);
+  const txt = t < 1.3 ? "READY" : t < 2.5 ? money(d.price) : L.fmt(d.hours * Math.min(1, Math.max(0, (t - 2.7) / 2.5))) + " H";
+  const done = t >= 5.2 ? L.fmt(d.hours) + " H" : txt;
+  c.save(); c.shadowColor = "rgba(255,170,60,.75)"; c.shadowBlur = 14; c.textAlign = "center"; c.textBaseline = "middle";
+  let fs = 46; c.font = "600 " + fs + "px " + MONO; while (c.measureText(done).width > 230 && fs > 20) { fs -= 2; c.font = "600 " + fs + "px " + MONO; }
+  c.fillStyle = "#ffb347"; c.globalAlpha = t < 1.3 ? 0.55 + 0.45 * Math.sin(t * 7) : 1; c.fillText(done, sx, sy + 2); c.restore();
+  const pr = seg(1.1, 1.2) * (1 - seg(5.4, 5.6)), bx = MX + 500, by = MY + 86, br = 22 * (1 - 0.1 * pr);
+  c.save(); if (run > 0) { c.shadowColor = "rgba(255,70,40,.9)"; c.shadowBlur = 18 + 10 * Math.sin(t * 10); }
+  const rg = c.createRadialGradient(bx - 6, by - 8, 2, bx, by, br); rg.addColorStop(0, pr > 0.5 ? "#ff8a6e" : "#ff9b82"); rg.addColorStop(1, pr > 0.5 ? "#b32410" : "#cf3a22"); c.fillStyle = rg; c.beginPath(); c.arc(bx, by, br, 0, 7); c.fill(); c.restore();
+  const kx = MX + 596, ky = MY + 86, ang = smooth(seg(1.15, 5.5)) * 7.2;
+  const kg = c.createRadialGradient(kx - 12, ky - 16, 4, kx, ky, 44); kg.addColorStop(0, "#6577e8"); kg.addColorStop(0.5, "#233190"); kg.addColorStop(1, "#0e1450");
+  c.save(); c.shadowColor = "rgba(10,15,70,.45)"; c.shadowBlur = 14; c.shadowOffsetY = 8; c.fillStyle = kg; c.beginPath(); c.arc(kx, ky, 42, 0, 7); c.fill(); c.restore();
+  c.save(); c.translate(kx, ky); c.rotate(ang); c.strokeStyle = "rgba(255,255,255,.22)"; c.lineWidth = 2;
+  for (let i = 0; i < 24; i++) { c.rotate(Math.PI / 12); c.beginPath(); c.moveTo(0, 35); c.lineTo(0, 41); c.stroke(); }
+  c.strokeStyle = "#fff"; c.lineWidth = 5; c.lineCap = "round"; c.beginPath(); c.moveTo(0, -10); c.lineTo(0, -32); c.stroke(); c.restore();
+  c.restore();
+}
+
+// The price tag drops in, then is crumpled (drawn in thin strips, each wobbled and shaded) and pulled up into the slot
+function drawTag(c, L, t, seg, out, back) {
+  const dp = seg(0.2, 0.95), a = seg(1.5, 2.45); if (dp <= 0 || a >= 1) return;
+  const cy0 = -220 + 740 * (dp < 1 ? back(dp) : 1), cx0 = RCX + 180 * (1 - out(dp)), rot = (0.35 * (1 - out(dp)) - 0.06 * out(dp)) * (1 - a);
+  const cy = cy0 + (EDGE - 110 - cy0) * out(a), W = 300, H = 190, w = W * (1 - 0.5 * a), hh = H * (1 - 0.3 * a);
+  c.save(); c.beginPath(); c.rect(0, EDGE, RW, RH); c.clip(); c.translate(cx0, cy); c.rotate(rot); c.scale(1.5, 1.5);
+  if (a === 0) { c.shadowColor = "rgba(60,45,30,.35)"; c.shadowBlur = 28; c.shadowOffsetY = 14; c.drawImage(L.tag, -W / 2, -H / 2); }
+  else for (let y = 0; y < H; y += 5) {
+    const u = y / H, wob = 1 + a * 0.12 * Math.sin(u * 17 + t * 9), off = a * 22 * Math.sin(u * 9 + t * 12) * (0.4 + u), sh = 5 * (hh / H) + 0.6, x0 = -w * wob / 2 + off, y0 = -hh / 2 + u * hh;
+    c.drawImage(L.tag, 0, y, W, 5, x0, y0, w * wob, sh);
+    c.fillStyle = "rgba(40,30,20," + 0.18 * a * (0.5 + 0.5 * Math.sin(u * 23 + 1.3)) + ")"; c.fillRect(x0 + 5, y0, w * wob - 10, sh);
+  }
+  c.restore();
+}
+
+// The control pill from the demo: Check -> price, then Save -> hours, with a cursor that clicks it
+function drawPill(c, L, d, t, seg, fin) {
+  const x = RCX - 210, y = 1778, w = 420, h = 82, lw = 190, smooth = v => v * v * (3 - 2 * v);
+  const p2 = t >= 5.7, press = p2 ? seg(7.5, 7.6) * (1 - seg(8.0, 8.2)) : seg(1.1, 1.2) * (1 - seg(2.6, 2.8));
+  c.save(); c.shadowColor = "rgba(60,45,30,.22)"; c.shadowBlur = 30; c.shadowOffsetY = 12; c.fillStyle = "#fffefb"; rr(c, x, y, w, h, 41); c.fill(); c.restore();
+  c.fillStyle = press > 0.5 ? "#141311" : "#5d5a54"; rr(c, x + 7, y + 7, lw, h - 14, 34); c.fill();
+  c.fillStyle = "#fff"; c.font = "600 26px " + MONO; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(p2 ? "Save" : "Check", x + 7 + lw / 2, y + h / 2 + 1);
+  const right = t < 2.5 ? money(d.price) : t < 5.7 ? "…" : L.fmt(d.hours) + " h";
+  let fs = 28; c.font = "600 " + fs + "px " + MONO; while (c.measureText(right).width > 180 && fs > 14) { fs -= 2; c.font = "600 " + fs + "px " + MONO; }
+  c.fillStyle = INK; c.fillText(right, x + 7 + lw + (w - 14 - lw) / 2, y + h / 2 + 1);
+  const ca = 1 - seg(8.0, 8.3); if (fin || ca <= 0) return;
+  const bx = x + 7 + lw / 2 + 14, by = y + h / 2 + 16, rest = [RCX + 330, 1690];
+  const m1 = smooth(seg(0.5, 1.1)), m2 = smooth(seg(1.4, 2.2)), m3 = smooth(seg(6.8, 7.4));
+  let px = rest[0], py = rest[1];
+  if (t < 1.4) { px = rest[0] + (bx - rest[0]) * m1; py = rest[1] + (by - rest[1]) * m1; }
+  else if (t < 6.8) { px = bx + (rest[0] - 40 - bx) * m2; py = by + (rest[1] - 20 - by) * m2; }
+  else { const sx0 = rest[0] - 40, sy0 = rest[1] - 20; px = sx0 + (bx - sx0) * m3; py = sy0 + (by - sy0) * m3; }
+  for (const ct of [1.15, 7.55]) { const q = (t - ct) / 0.45; if (q > 0 && q < 1) { c.strokeStyle = "rgba(20,19,17," + 0.35 * (1 - q) + ")"; c.lineWidth = 3; c.beginPath(); c.arc(px, py, 10 + 34 * q, 0, 7); c.stroke(); } }
+  c.save(); c.globalAlpha = ca; c.translate(px, py); c.scale(1.35, 1.35); c.fillStyle = "#141311"; c.strokeStyle = "#fff"; c.lineWidth = 2; c.beginPath();
+  c.moveTo(0, 0); c.lineTo(0, 26); c.lineTo(7, 20); c.lineTo(12, 32); c.lineTo(17, 30); c.lineTo(12, 18); c.lineTo(21, 18); c.closePath(); c.stroke(); c.fill(); c.restore();
+}
+
+// One frame at time t (seconds). t = Infinity is the finished scene, used for images and the last frame.
 function paintReceipt(cv, L, d, t) {
-  if (!isFinite(t)) t = 99;
+  const fin = !isFinite(t); if (fin) t = 99;
   const c = cv.getContext("2d"), seg = (a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+  c.save();   // every frame starts from clean canvas settings, so nothing leaks from the previous frame
   const out = x => 1 - Math.pow(1 - x, 3), back = x => 1 + 2.9 * Math.pow(x - 1, 3) + 1.9 * Math.pow(x - 1, 2), smooth = x => x * x * (3 - 2 * x);
-  const slotIn = out(seg(0, 0.7)), slotOut = 1 - seg(3.0, 3.6);
-  // the printer moves the paper in short line steps, each one eased, so it feels mechanical but stays smooth at 60fps
-  const k = seg(0.5, 3.1) * 64, whole = Math.floor(k), feed = Math.min(1, (whole + out(Math.min(1, (k - whole) / 0.45))) / 64);
-  const count = out(seg(1.4, 3.3)), sp = seg(3.5, 4.1), tau = t - 3.72;
-  const env = smooth(seg(4.3, 4.7)) * (1 - smooth(seg(5.9, 6.5))), sh = sp > 0 && sp < 1 ? Math.pow(1 - sp, 2) * 10 : 0;
-  const dx = Math.sin(sp * 61) * sh, dy = -(1 - feed) * (RPY + RPH + 14 - 62) + Math.sin(sp * 47) * sh + Math.sin((t - 4.3) * 3.1) * 5 * env;
-  c.globalAlpha = 1; c.drawImage(L.bg, 0, 0);
-  if (tau > 0 && tau < 0.2) { c.fillStyle = "rgba(255,255,255," + 0.07 * (1 - tau / 0.2) + ")"; c.fillRect(0, 0, RW, RH); }
-  c.save(); c.beginPath(); c.rect(0, 62, RW, RH); c.clip();
-  c.translate(dx + RCX, dy + RPY + RPH / 2); c.rotate(Math.sin((t - 4.3) * 2.3) * 0.0045 * env); c.translate(-RCX, -(RPY + RPH / 2));
+  const run = seg(2.3, 2.5) * (1 - seg(5.4, 5.7));
+  // the machine moves the paper in short line steps, each one eased, so it feels mechanical but stays smooth at 60fps
+  const k = seg(2.5, 5.4) * 64, whole = Math.floor(k), feed = Math.min(1, (whole + out(Math.min(1, (k - whole) / 0.45))) / 64);
+  const count = out(seg(2.7, 5.2)), sp = seg(5.4, 6.0), tau = t - 5.62;
+  const env = smooth(seg(6.2, 6.6)) * (1 - smooth(seg(7.8, 8.4))), sh = sp > 0 && sp < 1 ? Math.pow(1 - sp, 2) * 10 : 0;
+  const jx = Math.sin(t * 71) * 1.6 * run, jy = Math.cos(t * 53) * 1.2 * run;
+  const dx = Math.sin(sp * 61) * sh, dy = -(1 - feed) * (RPY + RPH + 14 + OFF - EDGE) + Math.sin(sp * 47) * sh + Math.sin((t - 6.2) * 3.1) * 5 * env;
+  c.globalAlpha = 1; c.drawImage(L.bg, jx, jy);
+  drawMachine(c, L, d, t, seg, run, jx, jy);
+  drawTag(c, L, t, seg, out, back);
+  c.save(); c.beginPath(); c.rect(0, EDGE, RW, RH); c.clip();
+  c.translate(dx + RCX, dy + OFF + RPY + RPH / 2); c.rotate(Math.sin((t - 6.2) * 2.3) * 0.0045 * env); c.translate(-RCX, -(RPY + RPH / 2));
   c.drawImage(L.paper, 0, 0);
   c.font = "300 " + L.size + "px " + SERIF; c.fillStyle = INK; c.textAlign = "center"; c.fillText(L.fmt(d.hours * count), RCX, L.numY);
-  // one block per working day, filling as the hours count up
   const nb = Math.min(20, Math.max(1, Math.ceil(d.days))), gap = 8, bw = Math.min(44, (720 - (nb - 1) * gap) / nb), bx0 = RCX - (nb * bw + (nb - 1) * gap) / 2, by = L.numY + 90, filled = Math.min(nb, d.days * count);
   for (let i = 0; i < nb; i++) {
     const x = bx0 + i * (bw + gap), f = Math.min(1, Math.max(0, filled - i));
@@ -525,13 +603,13 @@ function paintReceipt(cv, L, d, t) {
     c.strokeStyle = L.status[1]; c.fillStyle = L.status[1]; c.globalAlpha = 0.88 * Math.min(1, sp * 5); c.lineWidth = 7;
     c.strokeRect(-L.stampW / 2, -50, L.stampW, 100); c.font = "700 46px " + MONO; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(L.status[0], 0, 4); c.restore();
   }
-  const sx = seg(4.6, 5.8); // a soft light sweep across the paper
-  if (sx > 0 && sx < 1) { const x = -260 + sx * (RW + 520), g = c.createLinearGradient(x - 120, 0, x + 120, 0); g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,.38)"); g.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g; c.fillRect(RPX, RPY, RPW, RPH); }
+  const sx = seg(6.3, 7.5);
+  if (sx > 0 && sx < 1) { const x = -260 + sx * (RW + 520), g = c.createLinearGradient(x - 120, 0, x + 120, 0); g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,.5)"); g.addColorStop(1, "rgba(255,255,255,0)"); c.fillStyle = g; c.fillRect(RPX, RPY, RPW, RPH); }
   c.restore();
   if (tau > 0 && tau < 1.4) {
-    const ox = RCX, oy = L.y0 + 318, hue = L.status[1], palette = [ACC, "#1f7a4d", "#e6b422", INK];
+    const ox = RCX, oy = L.y0 + 318 + OFF, hue = L.status[1], palette = [ACC, "#1f7a4d", "#e6b422", INK];
     if (tau < 0.5) { c.strokeStyle = hue; c.globalAlpha = 0.4 * (1 - tau / 0.5); c.lineWidth = 5; c.beginPath(); c.arc(ox, oy, 60 + tau * 1300, 0, 7); c.stroke(); }
-    for (let i = 0; i < 70; i++) {   // ink specks, or confetti when the purchase is fine
+    for (let i = 0; i < 70; i++) {
       const r1 = Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1, r2 = Math.abs(Math.sin(i * 78.233) * 12345.678) % 1, r3 = Math.abs(Math.sin(i * 39.346) * 9871.12) % 1;
       const ang = -Math.PI * (0.05 + 0.9 * r1), v = 500 + 900 * r2, x = ox + Math.cos(ang) * v * tau * 0.9, y = oy + Math.sin(ang) * v * tau * 0.9 + 900 * tau * tau;
       c.globalAlpha = Math.max(0, 1 - tau / 1.4); c.fillStyle = L.good ? palette[i % 4] : hue;
@@ -539,14 +617,9 @@ function paintReceipt(cv, L, d, t) {
     }
     c.globalAlpha = 1;
   }
-  if (slotOut > 0) {   // printer slot with a blinking status light
-    const y = 28 - (1 - slotIn) * 90; c.save(); c.globalAlpha = slotOut * Math.min(1, slotIn * 2);
-    const g = c.createLinearGradient(0, y, 0, y + 36); g.addColorStop(0, "#3a352f"); g.addColorStop(1, "#0d0b0a"); c.fillStyle = g;
-    c.beginPath(); c.roundRect ? c.roundRect(RPX - 40, y, RPW + 80, 36, 14) : c.rect(RPX - 40, y, RPW + 80, 36); c.fill();
-    c.fillStyle = "#000"; c.fillRect(RPX - 10, y + 26, RPW + 20, 6);
-    c.fillStyle = ACC; c.globalAlpha = slotOut * (0.45 + 0.55 * Math.abs(Math.sin(t * 9))); c.beginPath(); c.arc(RPX + RPW + 4, y + 18, 6, 0, 7); c.fill(); c.restore();
-  }
-  c.font = "400 24px " + MONO; c.fillStyle = "#a39b8e"; c.textAlign = "center"; c.globalAlpha = seg(4.8, 5.6); c.fillText("Know what it costs before it costs you.", RCX, RH - 42); c.globalAlpha = 1;
+  c.font = "400 24px " + MONO; c.fillStyle = MUTE; c.textAlign = "center"; c.globalAlpha = seg(6.6, 7.4); c.fillText("Know what it costs before it costs you.", RCX, RH - 30); c.globalAlpha = 1;
+  drawPill(c, L, d, t, seg, fin);
+  c.restore();
 }
 const drawReceipt = (cv, d, item, t) => paintReceipt(cv, buildReceipt(d, item), d, t === undefined ? Infinity : t);
 
@@ -615,7 +688,7 @@ async function recordRealtime() {
 // ---- exact 60fps export: every frame is drawn at a precise 1/60 s step and encoded offline, so it never depends on device speed ----
 async function pickCfg() {
   if (!window.VideoEncoder || !window.VideoFrame) return null;
-  for (const codec of ["avc1.64002A", "avc1.4D002A", "avc1.42002A"]) {
+  for (const codec of ["avc1.64002A", "avc1.640033", "avc1.4D002A", "avc1.42002A"]) {
     const cfg = { codec, width: RW, height: RH, bitrate: 12000000, framerate: 60, avc: { format: "avc" }, latencyMode: "quality" };
     try { if ((await VideoEncoder.isConfigSupported(cfg)).supported) return cfg; } catch {}
   }
