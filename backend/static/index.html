@@ -234,6 +234,7 @@ dialog canvas{display:block;width:auto;height:auto;max-width:100%;max-height:62v
       <button type="button" class="btn btn-primary" id="receiptDownload">Save image</button>
       <button type="button" class="btn btn-primary" id="receiptVideo" hidden>Save video</button>
       <button type="button" class="btn btn-ghost" id="receiptReplay">Replay</button>
+      <button type="button" class="btn btn-ghost" id="receiptSound" aria-pressed="true">Sound on</button>
       <button type="button" class="btn btn-ghost" id="receiptClose">Close</button>
     </div>
   </dialog>
@@ -624,20 +625,114 @@ function paintReceipt(cv, L, d, t) {
 const drawReceipt = (cv, d, item, t) => paintReceipt(cv, buildReceipt(d, item), d, t === undefined ? Infinity : t);
 
 let animRaf = 0, recording = false, exactCfg = null;
-function playReceipt(done, onFrame) {
-  cancelAnimationFrame(animRaf);
-  const cv = $("receiptCv"), L = buildReceipt(lastCheck, $("receiptName").value), t0 = performance.now();
+// ---- sound: synthesised in the browser (nothing to download) and scheduled on the same clock as the animation ----
+let actx = null, soundOn = true, liveStop = null, playToken = 0;
+try { soundOn = localStorage.getItem("hindsight_sound") !== "off"; } catch {}
+function ensureAudio() {
+  if (!actx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; try { actx = new AC(); } catch { return null; } }
+  return actx;
+}
+// One soundtrack, built on any audio context (live speakers, the recorder, or an offline render for the saved video).
+// Times are seconds on the animation timeline, so every sound lands with what you see.
+function buildSound(ctx, dest, t0, good) {
+  const master = ctx.createGain(), comp = ctx.createDynamicsCompressor(); master.gain.value = 1.4;
+  comp.threshold.value = -16; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.12; master.connect(comp); comp.connect(dest);
+  const n = Math.ceil(ctx.sampleRate * 1.5), noise = ctx.createBuffer(1, n, ctx.sampleRate), nd = noise.getChannelData(0); let ns = 20241;
+  for (let i = 0; i < n; i++) { ns = (ns * 1664525 + 1013904223) >>> 0; nd[i] = ns / 2147483648 - 1; }
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }, at = t => t0 + t;
+  const env = (g, t, peak, dur, att) => { g.gain.setValueAtTime(0.0001, at(t)); g.gain.exponentialRampToValueAtTime(peak, at(t) + att); g.gain.exponentialRampToValueAtTime(0.0001, at(t) + dur); };
+  const puff = (t, f, q, dur, gain, type = "bandpass") => {            // a short burst of filtered noise: clicks, paper, ticks
+    const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noise; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    env(g, t, gain, dur, 0.002); s.connect(fl); fl.connect(g); g.connect(master); s.start(at(t), rnd(), dur + 0.02);
+  };
+  const tone = (t, f, f2, dur, gain, type = "sine", att = 0.004) => {  // a pitched tone with a quick decay: thumps, beeps, chimes
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, at(t)); if (f2) o.frequency.exponentialRampToValueAtTime(f2, at(t) + dur);
+    env(g, t, gain, dur, att); o.connect(g); g.connect(master); o.start(at(t)); o.stop(at(t) + dur + 0.05);
+  };
+  const sweep = (t, t1, f1, f2, gain) => {                              // filtered noise that glides: whooshes and suction
+    const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain(); s.buffer = noise; s.loop = true; fl.type = "bandpass"; fl.Q.value = 0.9;
+    fl.frequency.setValueAtTime(f1, at(t)); fl.frequency.exponentialRampToValueAtTime(f2, at(t1));
+    g.gain.setValueAtTime(0.0001, at(t)); g.gain.exponentialRampToValueAtTime(gain, at(t + (t1 - t) * 0.45)); g.gain.exponentialRampToValueAtTime(0.0001, at(t1));
+    s.connect(fl); fl.connect(g); g.connect(master); s.start(at(t)); s.stop(at(t1) + 0.05);
+  };
+  const click = t => { puff(t, 3200, 1.2, 0.012, 0.35, "highpass"); tone(t, 1900, 900, 0.02, 0.1); };
+  // 0.2 the price tag drops and lands on the floor
+  sweep(0.2, 0.5, 2500, 700, 0.1); puff(0.46, 1400, 0.7, 0.07, 0.4); tone(0.46, 110, 55, 0.12, 0.35); puff(0.95, 1800, 0.8, 0.04, 0.12); tone(0.95, 120, 70, 0.07, 0.12);
+  // 1.15 the cursor presses Check
+  click(1.15); tone(1.15, 160, 80, 0.07, 0.25, "triangle"); puff(1.22, 2600, 1, 0.008, 0.18, "highpass"); tone(1.3, 1568, 0, 0.07, 0.05, "square");
+  // 1.5 to 2.45 the tag is crumpled and sucked into the slot
+  sweep(1.5, 2.45, 400, 1800, 0.1);
+  for (let i = 0; i < 42; i++) { const tt = 1.55 + i * 0.021 + rnd() * 0.012; puff(tt, 2200 + rnd() * 3500, 2.5, 0.012 + rnd() * 0.012, 0.05 + 0.3 * rnd() * Math.sin(Math.PI * (tt - 1.5) / 0.95)); }
+  tone(2.45, 220, 90, 0.12, 0.2);
+  // 2.3 to 5.7 the machine runs: relay clunk, motor hum, knob detents, and the printer ratcheting out 64 lines
+  tone(2.3, 95, 55, 0.16, 0.35, "triangle"); puff(2.3, 900, 0.8, 0.05, 0.3);
+  const lp = ctx.createBiquadFilter(), hg = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(); lp.type = "lowpass"; lp.frequency.value = 380;
+  hg.gain.setValueAtTime(0.0001, at(2.3)); hg.gain.exponentialRampToValueAtTime(0.1, at(2.6)); hg.gain.setValueAtTime(0.1, at(5.4)); hg.gain.exponentialRampToValueAtTime(0.0001, at(5.7));
+  lfo.frequency.value = 11; lg.gain.value = 0.025; lfo.connect(lg); lg.connect(hg.gain); lp.connect(hg); hg.connect(master);
+  for (const d of [0, 1.3]) { const o = ctx.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(40, at(2.3)); o.frequency.exponentialRampToValueAtTime(62 + d, at(2.6)); o.frequency.setValueAtTime(62 + d, at(5.4)); o.frequency.exponentialRampToValueAtTime(40, at(5.7)); o.connect(lp); o.start(at(2.3)); o.stop(at(5.75)); }
+  lfo.start(at(2.3)); lfo.stop(at(5.75));
+  for (let t = 1.25; t < 5.4; t += 0.2) puff(t, 4200, 3, 0.006, 0.05);
+  const bz = ctx.createBufferSource(), bf = ctx.createBiquadFilter(), bg = ctx.createGain(); bz.buffer = noise; bz.loop = true; bf.type = "bandpass"; bf.frequency.value = 3800; bf.Q.value = 4;
+  bg.gain.setValueAtTime(0.0001, at(2.5)); bg.gain.exponentialRampToValueAtTime(0.03, at(2.6)); bg.gain.setValueAtTime(0.03, at(5.3)); bg.gain.exponentialRampToValueAtTime(0.0001, at(5.45));
+  bz.connect(bf); bf.connect(bg); bg.connect(master); bz.start(at(2.5)); bz.stop(at(5.5));
+  for (let j = 0; j < 64; j++) { const tt = 2.5 + j * (2.9 / 64); puff(tt, 2400 + rnd() * 600, 3, 0.011, 0.16 + 0.06 * rnd()); tone(tt, 150, 90, 0.018, 0.06); }
+  tone(5.25, 880, 0, 0.09, 0.06, "square"); tone(5.34, 1320, 0, 0.11, 0.06, "square"); tone(5.4, 130, 70, 0.1, 0.25, "triangle");
+  // 5.62 the stamp lands, then ink specks or confetti
+  sweep(5.42, 5.62, 800, 300, 0.12); tone(5.62, 90, 38, 0.32, 0.7); puff(5.62, 700, 0.6, 0.14, 0.55, "lowpass"); puff(5.62, 2800, 1.2, 0.03, 0.4);
+  if (good) { puff(5.66, 5000, 1, 0.05, 0.12); for (let i = 0; i < 8; i++) tone(5.68 + i * 0.07, 1800 + rnd() * 2400, 0, 0.05, 0.05); }
+  else for (let i = 0; i < 7; i++) puff(5.7 + i * 0.06 + rnd() * 0.03, 600 + rnd() * 500, 1.5, 0.05, 0.1 + 0.1 * rnd());
+  // 6.5 a soft chime as the light sweeps the paper, then 7.55 the cursor presses Save
+  tone(6.5, 1568, 0, 0.9, 0.09, "sine", 0.01); tone(6.5, 3136, 0, 0.5, 0.025); tone(6.62, 2093, 0, 0.9, 0.06, "sine", 0.01);
+  click(7.55); tone(7.55, 170, 85, 0.07, 0.22, "triangle"); puff(7.62, 2600, 1, 0.008, 0.18, "highpass");
+  return () => { try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(0, ctx.currentTime, 0.02); } catch {} };
+}
+const stopSound = () => { if (liveStop) { liveStop(); liveStop = null; } };
+function haltPlayback() { playToken++; cancelAnimationFrame(animRaf); stopSound(); }
+function startSound(good, tap) {
+  const ctx = ensureAudio(); if (!ctx) return;
+  const bus = ctx.createGain(), spk = ctx.createGain(); spk.gain.value = soundOn ? 1 : 0; bus.connect(spk); spk.connect(ctx.destination); if (tap) bus.connect(tap);
+  const stop = buildSound(ctx, bus, ctx.currentTime + 0.06, good);
+  liveStop = () => { stop(); setTimeout(() => { try { bus.disconnect(); } catch {} }, 250); };
+}
+async function renderSoundtrack(good) {            // the same soundtrack, rendered offline for the saved video
+  const sr = 48000, off = new OfflineAudioContext(2, Math.ceil(sr * (RTOTAL + 0.5)), sr); buildSound(off, off.destination, 0, good); return off.startRendering();
+}
+async function encodeAudio(buf) {                  // -> AAC packets, or null when this browser has no AAC encoder
+  if (!window.AudioEncoder || !window.AudioData) return null;
+  const cfg = { codec: "mp4a.40.2", sampleRate: buf.sampleRate, numberOfChannels: 2, bitrate: 128000 };
+  try { if (!(await AudioEncoder.isConfigSupported(cfg)).supported) return null; } catch { return null; }
+  let asc = null, fail = null; const samples = [];
+  const enc = new AudioEncoder({ output: (chunk, meta) => {
+    if (!asc && meta && meta.decoderConfig && meta.decoderConfig.description) asc = new Uint8Array(meta.decoderConfig.description).slice();
+    const data = new Uint8Array(chunk.byteLength); chunk.copyTo(data); samples.push({ data });
+  }, error: e => { fail = e; } });
+  enc.configure(cfg);
+  const L = buf.getChannelData(0), R = buf.numberOfChannels > 1 ? buf.getChannelData(1) : L, step = 4800;
+  for (let i = 0; i < L.length; i += step) {
+    const m = Math.min(step, L.length - i), planar = new Float32Array(m * 2); planar.set(L.subarray(i, i + m), 0); planar.set(R.subarray(i, i + m), m);
+    const ad = new AudioData({ format: "f32-planar", sampleRate: buf.sampleRate, numberOfFrames: m, numberOfChannels: 2, timestamp: Math.round(i / buf.sampleRate * 1e6), data: planar });
+    enc.encode(ad); ad.close(); if (fail) throw fail;
+  }
+  await enc.flush(); enc.close();
+  return fail || !asc || !samples.length ? null : { sampleRate: buf.sampleRate, channels: 2, asc, samples };
+}
+
+function playReceipt(done, onFrame, tap) {
+  cancelAnimationFrame(animRaf); stopSound(); const my = ++playToken;
+  const cv = $("receiptCv"), L = buildReceipt(lastCheck, $("receiptName").value), ctx = ensureAudio(); let t0 = 0;
   const step = now => {
     const t = (now - t0) / 1000;
-    if (t < RTOTAL) { paintReceipt(cv, L, lastCheck, t); if (onFrame) onFrame(); animRaf = requestAnimationFrame(step); }
+    if (t < RTOTAL) { paintReceipt(cv, L, lastCheck, Math.max(0, t)); if (onFrame) onFrame(); animRaf = requestAnimationFrame(step); }
     else { paintReceipt(cv, L, lastCheck, Infinity); if (onFrame) onFrame(); if (done) done(); }
   };
-  animRaf = requestAnimationFrame(step);
+  const go = () => { if (my !== playToken) return; if (soundOn || tap) startSound(L.good, tap); t0 = performance.now() + 60; animRaf = requestAnimationFrame(step); };
+  if (ctx && ctx.state !== "running") Promise.race([ctx.resume(), new Promise(r => setTimeout(r, 250))]).then(go, go); else go();   // start picture and sound together
 }
 const pickMime = () => window.MediaRecorder && HTMLCanvasElement.prototype.captureStream
   ? ["video/mp4;codecs=avc1.42E01E", "video/mp4", "video/webm;codecs=vp9", "video/webm"].find(t => MediaRecorder.isTypeSupported(t)) : undefined;
 async function openReceipt() {
   if (!lastCheck) return;
+  ensureAudio(); $("receiptSound").hidden = !(window.AudioContext || window.webkitAudioContext); paintSoundBtn();   // created inside the click so the browser allows sound
   try { await Promise.all([document.fonts.load("300 80px Fraunces"), document.fonts.load("400 40px Fraunces"), document.fonts.load("500 20px 'IBM Plex Mono'"), document.fonts.load("600 20px 'IBM Plex Mono'"), document.fonts.load("700 20px 'IBM Plex Mono'")]); } catch {}
   const canShare = navigator.canShare && navigator.canShare({ files: [new File([""], "r.png", { type: "image/png" })] });
   $("receiptShare").hidden = !canShare;
@@ -651,11 +746,13 @@ async function openReceipt() {
 const receiptBlob = () => new Promise(res => { const oc = document.createElement("canvas"); oc.width = RW; oc.height = RH; drawReceipt(oc, lastCheck, $("receiptName").value); oc.toBlob(res, "image/png"); });
 const fileName = ext => "hindsight-receipt-" + new Date().toISOString().slice(0, 10) + "." + ext;
 function saveBlob(blob, name) { const url = URL.createObjectURL(blob), a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
+const paintSoundBtn = () => { const b = $("receiptSound"); b.textContent = soundOn ? "Sound on" : "Sound off"; b.setAttribute("aria-pressed", String(soundOn)); };
+$("receiptSound").addEventListener("click", () => { soundOn = !soundOn; try { localStorage.setItem("hindsight_sound", soundOn ? "on" : "off"); } catch {} paintSoundBtn(); if (!soundOn) stopSound(); });
 $("receiptBtn").addEventListener("click", openReceipt);
-$("receiptName").addEventListener("input", () => { if (recording) return; cancelAnimationFrame(animRaf); drawReceipt($("receiptCv"), lastCheck, $("receiptName").value); });
+$("receiptName").addEventListener("input", () => { if (recording) return; haltPlayback(); drawReceipt($("receiptCv"), lastCheck, $("receiptName").value); });
 $("receiptClose").addEventListener("click", () => $("receiptDlg").close());
 $("receiptDlg").addEventListener("click", e => { if (e.target === $("receiptDlg")) $("receiptDlg").close(); });
-$("receiptDlg").addEventListener("close", () => { if (!recording) cancelAnimationFrame(animRaf); });
+$("receiptDlg").addEventListener("close", () => { if (!recording) haltPlayback(); });
 $("receiptReplay").addEventListener("click", () => { if (!recording) playReceipt(); });
 $("receiptDownload").addEventListener("click", async () => {
   const blob = await receiptBlob(); if (!blob) return toast("Couldn't create the image. Please try again.", "error");
@@ -674,10 +771,12 @@ async function recordRealtime() {
   try {
     // recorded a little smaller than the preview: encoding fewer pixels lets more devices keep a true 60fps
     const rc = document.createElement("canvas"); rc.width = Math.round(RW * 0.67 / 2) * 2; rc.height = Math.round(RH * 0.67 / 2) * 2; const rx = rc.getContext("2d");
-    const stream = rc.captureStream(60), rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 10000000 }), chunks = [];
+    const actx0 = ensureAudio(); let tap = null; try { if (actx0) tap = actx0.createMediaStreamDestination(); } catch {}
+    const stream = rc.captureStream(60); if (tap) tap.stream.getAudioTracks().forEach(tr => stream.addTrack(tr));
+    const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 10000000 }), chunks = [];
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     const stopped = new Promise(r => { rec.onstop = r; });
-    rec.start(); await new Promise(res => playReceipt(res, () => rx.drawImage(cv, 0, 0, rc.width, rc.height))); await new Promise(r => setTimeout(r, 300)); rec.stop(); await stopped;
+    rec.start(); await new Promise(res => playReceipt(res, () => rx.drawImage(cv, 0, 0, rc.width, rc.height), tap)); await new Promise(r => setTimeout(r, 300)); rec.stop(); await stopped;
     stream.getTracks().forEach(t => t.stop());
     const ext = mime.startsWith("video/mp4") ? "mp4" : "webm";
     saveBlob(new Blob(chunks, { type: mime.split(";")[0] }), fileName(ext)); toast("Receipt video saved (" + ext.toUpperCase() + ").");
@@ -695,31 +794,48 @@ async function pickCfg() {
   return null;
 }
 // minimal MP4 writer: one H.264 track, constant frame rate, index first so the file streams and shares well
-function writeMp4(w, h, fps, avcC, samples) {
+function writeMp4(w, h, fps, avcC, samples, audio) {
   const u32 = n => [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255], u16 = n => [(n >> 8) & 255, n & 255], str = t => [...t].map(ch => ch.charCodeAt(0)), zeros = n => new Array(n).fill(0);
   const cat = parts => { let n = 0; for (const p of parts) n += p.length; const o = new Uint8Array(n); let k = 0; for (const p of parts) { o.set(p, k); k += p.length; } return o; };
-  const box = (type, ...parts) => { const body = cat(parts.map(p => p instanceof Uint8Array ? p : Uint8Array.from(p))); return cat([Uint8Array.from([...u32(body.length + 8), ...str(type)]), body]); };
-  const N = samples.length, dur = Math.round(N * 1000 / fps), keys = samples.map((x, i) => x.key ? i + 1 : 0).filter(Boolean);
+  const bytes = p => p instanceof Uint8Array ? p : Uint8Array.from(p);
+  const box = (type, ...parts) => { const body = cat(parts.map(bytes)); return cat([Uint8Array.from([...u32(body.length + 8), ...str(type)]), body]); };
+  const desc = (tag, ...parts) => { const body = cat(parts.map(bytes)); return cat([Uint8Array.from([tag, body.length]), body]); };   // single-byte lengths are enough here
+  const N = samples.length, A = audio ? audio.samples.length : 0, dur = Math.round(N * 1000 / fps), adur = audio ? Math.round(A * 1024 * 1000 / audio.sampleRate) : 0;
+  const keys = samples.map((x, i) => x.key ? i + 1 : 0).filter(Boolean);
   const matrix = [...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x10000), ...u32(0), ...u32(0), ...u32(0), ...u32(0x40000000)];
-  const moov = off => box("moov",
-    box("mvhd", [0, 0, 0, 0], u32(0), u32(0), u32(1000), u32(dur), u32(0x10000), u16(0x100), u16(0), zeros(8), matrix, zeros(24), u32(2)),
-    box("trak",
-      box("tkhd", [0, 0, 0, 3], u32(0), u32(0), u32(1), u32(0), u32(dur), zeros(8), u16(0), u16(0), u16(0), u16(0), matrix, u32(w << 16), u32(h << 16)),
-      box("mdia",
-        box("mdhd", [0, 0, 0, 0], u32(0), u32(0), u32(fps), u32(N), u16(0x55c4), u16(0)),
-        box("hdlr", [0, 0, 0, 0], u32(0), str("vide"), zeros(12), str("VideoHandler"), [0]),
-        box("minf",
-          box("vmhd", [0, 0, 0, 1], zeros(8)),
-          box("dinf", box("dref", [0, 0, 0, 0], u32(1), box("url ", [0, 0, 0, 1]))),
-          box("stbl",
-            box("stsd", [0, 0, 0, 0], u32(1), box("avc1", zeros(6), u16(1), zeros(16), u16(w), u16(h), u32(0x480000), u32(0x480000), u32(0), u16(1), zeros(32), u16(0x18), u16(0xffff), box("avcC", avcC))),
-            box("stts", [0, 0, 0, 0], u32(1), u32(N), u32(1)),
-            box("stss", [0, 0, 0, 0], u32(keys.length), ...keys.map(u32)),
-            box("stsc", [0, 0, 0, 0], u32(1), u32(1), u32(N), u32(1)),
-            box("stsz", [0, 0, 0, 0], u32(0), u32(N), ...samples.map(x => u32(x.data.length))),
-            box("stco", [0, 0, 0, 0], u32(1), u32(off)))))));
+  const dinf = () => box("dinf", box("dref", [0, 0, 0, 0], u32(1), box("url ", [0, 0, 0, 1])));
+  const vtrak = off => box("trak",
+    box("tkhd", [0, 0, 0, 3], u32(0), u32(0), u32(1), u32(0), u32(dur), zeros(8), u16(0), u16(0), u16(0), u16(0), matrix, u32(w << 16), u32(h << 16)),
+    box("mdia",
+      box("mdhd", [0, 0, 0, 0], u32(0), u32(0), u32(fps), u32(N), u16(0x55c4), u16(0)),
+      box("hdlr", [0, 0, 0, 0], u32(0), str("vide"), zeros(12), str("VideoHandler"), [0]),
+      box("minf", box("vmhd", [0, 0, 0, 1], zeros(8)), dinf(),
+        box("stbl",
+          box("stsd", [0, 0, 0, 0], u32(1), box("avc1", zeros(6), u16(1), zeros(16), u16(w), u16(h), u32(0x480000), u32(0x480000), u32(0), u16(1), zeros(32), u16(0x18), u16(0xffff), box("avcC", avcC))),
+          box("stts", [0, 0, 0, 0], u32(1), u32(N), u32(1)),
+          box("stss", [0, 0, 0, 0], u32(keys.length), ...keys.map(u32)),
+          box("stsc", [0, 0, 0, 0], u32(1), u32(1), u32(N), u32(1)),
+          box("stsz", [0, 0, 0, 0], u32(0), u32(N), ...samples.map(x => u32(x.data.length))),
+          box("stco", [0, 0, 0, 0], u32(1), u32(off))))));
+  const atrak = off => box("trak",
+    box("tkhd", [0, 0, 0, 3], u32(0), u32(0), u32(2), u32(0), u32(adur), zeros(8), u16(0), u16(0), u16(0x100), u16(0), matrix, u32(0), u32(0)),
+    box("mdia",
+      box("mdhd", [0, 0, 0, 0], u32(0), u32(0), u32(audio.sampleRate), u32(A * 1024), u16(0x55c4), u16(0)),
+      box("hdlr", [0, 0, 0, 0], u32(0), str("soun"), zeros(12), str("SoundHandler"), [0]),
+      box("minf", box("smhd", [0, 0, 0, 0], u16(0), u16(0)), dinf(),
+        box("stbl",
+          box("stsd", [0, 0, 0, 0], u32(1), box("mp4a", zeros(6), u16(1), zeros(8), u16(audio.channels), u16(16), u16(0), u16(0), u32(audio.sampleRate * 65536),
+            box("esds", [0, 0, 0, 0], desc(3, u16(2), [0], desc(4, [0x40, 0x15], zeros(3), u32(0), u32(0), desc(5, audio.asc)), desc(6, [2]))))),
+          box("stts", [0, 0, 0, 0], u32(1), u32(A), u32(1024)),
+          box("stsc", [0, 0, 0, 0], u32(1), u32(1), u32(A), u32(1)),
+          box("stsz", [0, 0, 0, 0], u32(0), u32(A), ...audio.samples.map(x => u32(x.data.length))),
+          box("stco", [0, 0, 0, 0], u32(1), u32(off))))));
+  const moov = (ov, oa) => box("moov",
+    box("mvhd", [0, 0, 0, 0], u32(0), u32(0), u32(1000), u32(Math.max(dur, adur)), u32(0x10000), u16(0x100), u16(0), zeros(8), matrix, zeros(24), u32(audio ? 3 : 2)),
+    vtrak(ov), ...(audio ? [atrak(oa)] : []));
   const ftyp = box("ftyp", str("isom"), u32(0x200), str("isom"), str("iso2"), str("avc1"), str("mp41"));
-  return new Blob([ftyp, moov(ftyp.length + moov(0).length + 8), box("mdat", ...samples.map(x => x.data))], { type: "video/mp4" });
+  const base = ftyp.length + moov(0, 0).length + 8, vbytes = samples.reduce((s, x) => s + x.data.length, 0);
+  return new Blob([ftyp, moov(base, base + vbytes), box("mdat", ...samples.map(x => x.data), ...(audio ? audio.samples.map(x => x.data) : []))], { type: "video/mp4" });
 }
 async function exportExact() {
   const btn = $("receiptVideo"), label = btn.textContent, fps = 60, total = Math.round((RTOTAL + 0.5) * fps); let failed = false;
@@ -745,7 +861,10 @@ async function exportExact() {
     }
     await enc.flush(); enc.close();
     if (fail || !avcC || samples.length !== total) throw fail || new Error("incomplete video");
-    saveBlob(writeMp4(RW, RH, fps, avcC, samples), fileName("mp4")); toast("Receipt video saved (MP4, exactly 60fps).");
+    let audio = null; btn.textContent = "Adding sound…";
+    try { audio = await encodeAudio(await renderSoundtrack(L.good)); } catch (e) { console.error(e); }      // a sound problem never costs you the video
+    saveBlob(writeMp4(RW, RH, fps, avcC, samples, audio), fileName("mp4"));
+    toast(audio ? "Receipt video saved (MP4, exactly 60fps, with sound)." : "Receipt video saved (MP4, exactly 60fps). This browser can't add sound to it, so it's silent.");
   } catch (e) { console.error(e); failed = true; }
   finally { recording = false; btn.disabled = false; btn.textContent = label; }
   if (failed) { exactCfg = null; if (pickMime()) { toast("Exact 60fps export isn't available here, switching to the standard recorder."); recordRealtime(); } else toast("Couldn't render the video. Use Save image instead.", "error"); }
